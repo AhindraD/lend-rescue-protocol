@@ -16,7 +16,7 @@ pub struct CreateDemoPosition<'info> {
     #[account(
         init,
         payer = owner,
-        space = Position::LEN,
+        space = 8 + Position::INIT_SPACE,
         seeds = [POSITION_SEED, market.key().as_ref(), owner.key().as_ref(), &position_id.to_le_bytes()],
         bump
     )]
@@ -25,34 +25,30 @@ pub struct CreateDemoPosition<'info> {
     pub system_program: Program<'info, System>,
 }
 
-pub fn handle_create_demo_position(
-    ctx: Context<CreateDemoPosition>,
-    position_id: u64,
-) -> Result<()> {
-    require!(
-        !ctx.accounts.market.is_paused,
-        LendRescueError::MarketPaused
-    );
+impl<'info> CreateDemoPosition<'info> {
+    pub fn create_demo_position(&mut self, position_id: u64, bump: u8) -> Result<()> {
+        require!(!self.market.is_paused, LendRescueError::MarketPaused);
 
-    let position = &mut ctx.accounts.position;
-    position.owner = ctx.accounts.owner.key();
-    position.market = ctx.accounts.market.key();
-    position.position_id = position_id;
-    position.collateral_amount = 0;
-    position.debt_amount = 0;
-    position.collateral_mint = ctx.accounts.market.collateral_mint;
-    position.debt_mint = ctx.accounts.market.debt_mint;
-    position.status = 0; // Active
-    position.version = 1;
-    position.bump = ctx.bumps.position;
+        let position = &mut self.position;
+        position.owner = self.owner.key();
+        position.market = self.market.key();
+        position.position_id = position_id;
+        position.collateral_amount = 0;
+        position.debt_amount = 0;
+        position.collateral_mint = self.market.collateral_mint;
+        position.debt_mint = self.market.debt_mint;
+        position.status = 0; // Active
+        position.version = 1;
+        position.bump = bump;
 
-    emit!(PositionCreatedEvent {
-        position: position.key(),
-        market: position.market,
-        owner: position.owner,
-        position_id,
-        timestamp: Clock::get()?.unix_timestamp,
-    });
+        emit!(PositionCreatedEvent {
+            position: position.key(),
+            market: position.market,
+            owner: position.owner,
+            position_id,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
 
-    Ok(())
+        Ok(())
+    }
 }

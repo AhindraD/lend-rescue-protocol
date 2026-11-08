@@ -71,6 +71,9 @@ pub enum LendRescueError {
     #[msg("Supplied policy nonce does not match current active policy nonce")]
     InvalidNonce,
 
+    #[msg("Supplied policy revision does not match current active policy revision")]
+    InvalidPolicyRevision,
+
     #[msg("Requested recovery action is not permitted by the policy")]
     ActionNotAllowed,
 

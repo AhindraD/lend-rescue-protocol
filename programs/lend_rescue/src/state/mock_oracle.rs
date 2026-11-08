@@ -2,6 +2,7 @@ use crate::constants::BPS_DIVISOR;
 use anchor_lang::prelude::*;
 
 #[account]
+#[derive(InitSpace)]
 pub struct MockOracle {
     /// Market reference
     pub market: Pubkey,
@@ -26,19 +27,6 @@ pub struct MockOracle {
 }
 
 impl MockOracle {
-    pub const LEN: usize = 8 // discriminator
-        + 32 // market
-        + 32 // asset_mint
-        + 8  // price
-        + 4  // exponent
-        + 8  // confidence
-        + 8  // last_update_slot
-        + 8  // last_update_timestamp
-        + 32 // update_authority
-        + 1  // version
-        + 1  // bump
-        + 32; // reserved padding
-
     /// Checks if the oracle price was updated within the permitted age threshold
     pub fn is_fresh(&self, current_timestamp: i64, max_age_secs: i64) -> bool {
         if self.last_update_timestamp > current_timestamp {

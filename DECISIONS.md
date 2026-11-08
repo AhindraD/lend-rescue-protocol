@@ -16,6 +16,7 @@ This document records the architectural and design decisions made for LendRescue
 - [ADR-008: Adoption of Anthropic `frontend-design` Agent Skill](#adr-008-adoption-of-anthropic-frontend-design-agent-skill)
 - [ADR-009: Pinned Toolchain Alignment (Agave 4.1.2, Platform Tools v1.57) and SBPF Stack Optimization](#adr-009-pinned-toolchain-alignment-agave-412-platform-tools-v157-and-sbpf-stack-optimization)
 - [ADR-010: Axum REST API Architecture, Provider Abstraction, and Least-Cost Ranking Invariant](#adr-010-axum-rest-api-architecture-provider-abstraction-and-least-cost-ranking-invariant)
+- [ADR-011: Anchor Architecture Hardening: InitSpace Sizing, Context Method Standardization, and Explicit Authorization/Nonce Semantics](#adr-011-anchor-architecture-hardening-initspace-sizing-context-method-standardization-and-explicit-authorizationnonce-semantics)
 
 ---
 
@@ -163,4 +164,29 @@ This document records the architectural and design decisions made for LendRescue
   - *Positive*: Full testability offline in sandbox without requiring an external PostgreSQL instance.
   - *Positive*: Zero float rounding errors across the network boundary.
   - *Positive*: Directly satisfies least-cost economic optimality for borrowers.
+
+---
+
+### ADR-011: Anchor Architecture Hardening: InitSpace Sizing, Context Method Standardization, and Explicit Authorization/Nonce Semantics
+
+- **Status**: Accepted
+- **Context**:
+  1. Anchor state accounts previously used manual `LEN` constants containing arbitrary padding buffers, causing rent inefficiency and risk of under-allocation if fields change.
+  2. The `RecoveryPolicy` account overloaded a single `nonce` field for both replay protection during execution and state mutations during update/revocation, which conflated execution sequence with configuration revision.
+  3. Authorization lacked a clean, idiomatic representation of owner-only execution vs delegate execution, and callers were checked imperatively rather than through structured domain predicates.
+  4. Public instruction handlers in `lib.rs` mixed account validation, CPI logic, and business logic inline, violating the canonical Anchor pattern where instruction logic resides in `impl<'info> AccountsStruct<'info>`.
+- **Decision**:
+  1. **Canonical Account Sizing with `InitSpace`**: Derive `InitSpace` on all account structs (`MarketConfig`, `MockOracle`, `Position`, `RecoveryPolicy`, `DemoSwapPool`, `RecoveryReceipt`). Replace manual byte math with `space = 8 + Account::INIT_SPACE` and remove arbitrary padding buffers.
+  2. **Option<Pubkey> Delegate Representation**: Represent the authorized delegate as `Option<Pubkey>` on-chain. When `None`, recovery execution is restricted to the position owner. When `Some(delegate)`, either the owner or the delegate is authorized to execute recovery within bounded limits.
+  3. **Separation of Nonce and Revision**:
+     - `execution_nonce: u64`: Initialized to 0. Consumed exclusively by successful `execute_recovery` operations, providing replay protection and unique seeds for `RecoveryReceipt` PDAs.
+     - `policy_revision: u64`: Initialized to 1. Incremented on configuration updates (`update_recovery_policy`) and revocation (`revoke_recovery_policy`). Ordinary recovery execution does not increment it.
+     - `schema_version: u8`: Set to constant `RECOVERY_POLICY_SCHEMA_VERSION = 2` for explicit on-chain layout versioning.
+  4. **Instruction Context Method Architecture**: Refactor all instruction logic into `impl<'info> AccountsStruct<'info>` context methods with `&mut self` for state mutation and `&self` for read-only access. Anchor entrypoints in `lib.rs` remain minimal one-line dispatchers.
+  5. **Stack Safety Preserved**: Maintain `Box<Account<'info, T>>` in `ExecuteRecovery` to keep the deserialization stack frame below 4096 bytes and preserve `#[inline(never)]` helper methods for individual recovery action branches.
+- **Consequences**:
+  - *Positive*: Exact, rent-efficient account allocation calculated at compile time by Anchor macros.
+  - *Positive*: Unambiguous replay protection and audit trail: `execution_nonce` strictly counts recoveries; `policy_revision` strictly counts config mutations.
+  - *Positive*: Clean separation of concerns with idiomatic Anchor context methods.
+  - *Positive*: Zero regression in pure Rust crates (`crates/domain-types`, `crates/recovery-engine`) and Axum backend API.
 

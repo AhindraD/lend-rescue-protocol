@@ -17,35 +17,33 @@ pub struct UpdateMockPrice<'info> {
     pub update_authority: SystemAccount<'info>,
 }
 
-pub fn handle_update_mock_price(
-    ctx: Context<UpdateMockPrice>,
-    new_price: i64,
-    confidence: u64,
-) -> Result<()> {
-    require!(new_price > 0, LendRescueError::InvalidOraclePrice);
+impl<'info> UpdateMockPrice<'info> {
+    pub fn update_mock_price(&mut self, new_price: i64, confidence: u64) -> Result<()> {
+        require!(new_price > 0, LendRescueError::InvalidOraclePrice);
 
-    let oracle = &mut ctx.accounts.oracle;
-    let old_price = oracle.price;
+        let oracle = &mut self.oracle;
+        let old_price = oracle.price;
 
-    oracle.price = new_price;
-    oracle.confidence = confidence;
-    oracle.last_update_slot = Clock::get()?.slot;
-    oracle.last_update_timestamp = Clock::get()?.unix_timestamp;
+        oracle.price = new_price;
+        oracle.confidence = confidence;
+        oracle.last_update_slot = Clock::get()?.slot;
+        oracle.last_update_timestamp = Clock::get()?.unix_timestamp;
 
-    require!(
-        oracle.is_confidence_valid(MAX_CONFIDENCE_BPS),
-        LendRescueError::OracleConfidenceTooWide
-    );
+        require!(
+            oracle.is_confidence_valid(MAX_CONFIDENCE_BPS),
+            LendRescueError::OracleConfidenceTooWide
+        );
 
-    emit!(MockOracleUpdatedEvent {
-        oracle: oracle.key(),
-        market: oracle.market,
-        asset_mint: oracle.asset_mint,
-        old_price,
-        new_price,
-        confidence,
-        timestamp: oracle.last_update_timestamp,
-    });
+        emit!(MockOracleUpdatedEvent {
+            oracle: oracle.key(),
+            market: oracle.market,
+            asset_mint: oracle.asset_mint,
+            old_price,
+            new_price,
+            confidence,
+            timestamp: oracle.last_update_timestamp,
+        });
 
-    Ok(())
+        Ok(())
+    }
 }

@@ -22,7 +22,7 @@ pub struct InitializeDemoSwapPool<'info> {
     #[account(
         init,
         payer = authority,
-        space = DemoSwapPool::LEN,
+        space = 8 + DemoSwapPool::INIT_SPACE,
         seeds = [DEMO_POOL_SEED, market.key().as_ref(), input_mint.key().as_ref(), output_mint.key().as_ref()],
         bump
     )]
@@ -53,35 +53,34 @@ pub struct InitializeDemoSwapPool<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-pub fn handle_initialize_demo_swap_pool(
-    ctx: Context<InitializeDemoSwapPool>,
-    fee_bps: u16,
-) -> Result<()> {
-    require!(fee_bps <= 1_000, LendRescueError::InvalidFeeBps);
-    require!(
-        ctx.accounts.input_mint.key() != ctx.accounts.output_mint.key(),
-        LendRescueError::InvalidMint
-    );
+impl<'info> InitializeDemoSwapPool<'info> {
+    pub fn initialize_demo_swap_pool(&mut self, fee_bps: u16, bump: u8) -> Result<()> {
+        require!(fee_bps <= 1_000, LendRescueError::InvalidFeeBps);
+        require!(
+            self.input_mint.key() != self.output_mint.key(),
+            LendRescueError::InvalidMint
+        );
 
-    let pool = &mut ctx.accounts.pool;
-    pool.market = ctx.accounts.market.key();
-    pool.input_mint = ctx.accounts.input_mint.key();
-    pool.output_mint = ctx.accounts.output_mint.key();
-    pool.input_vault = ctx.accounts.input_vault.key();
-    pool.output_vault = ctx.accounts.output_vault.key();
-    pool.fee_bps = fee_bps;
-    pool.pool_authority = pool.key();
-    pool.version = 1;
-    pool.bump = ctx.bumps.pool;
+        let pool = &mut self.pool;
+        pool.market = self.market.key();
+        pool.input_mint = self.input_mint.key();
+        pool.output_mint = self.output_mint.key();
+        pool.input_vault = self.input_vault.key();
+        pool.output_vault = self.output_vault.key();
+        pool.fee_bps = fee_bps;
+        pool.pool_authority = pool.key();
+        pool.version = 1;
+        pool.bump = bump;
 
-    emit!(DemoSwapPoolInitializedEvent {
-        pool: pool.key(),
-        market: pool.market,
-        input_mint: pool.input_mint,
-        output_mint: pool.output_mint,
-        fee_bps,
-        timestamp: Clock::get()?.unix_timestamp,
-    });
+        emit!(DemoSwapPoolInitializedEvent {
+            pool: pool.key(),
+            market: pool.market,
+            input_mint: pool.input_mint,
+            output_mint: pool.output_mint,
+            fee_bps,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
 
-    Ok(())
+        Ok(())
+    }
 }

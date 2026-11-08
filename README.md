@@ -123,6 +123,7 @@ LendRescue is built following strict phased gates. Completion is tracked authori
 | **2** | **Anchor Integration & Security Tests** | Complete | [`b02fec1`](https://github.com/AhindraD/lend-rescue-protocol/commit/b02fec1) — 39 integration tests passed, 0 failed. Surfpool 1.7.0 used as local validator. Complete atomic rollback and security defenses verified. |
 | **3** | **Pure Rust Domain & Recovery Engine** | Complete | [`5d285cb`](https://github.com/AhindraD/lend-rescue-protocol/commit/5d285cb) — Three crates: `crates/domain-types`, `crates/risk-engine`, `crates/recovery-engine`. 30 workspace tests passed. Clippy (`-D warnings`) and Anchor build passed. Checked fixed-point arithmetic. |
 | **4** | **Axum Backend & Engine Integration** | Complete | [`9304120`](https://github.com/AhindraD/lend-rescue-protocol/commit/9304120) — Pinned crate `lend-rescue-api` (`apps/api`). REST API `/api/v1` for markets, positions, oracles, risk, recovery quotes, optimization, and OpenAPI 3.1 JSON. Least-cost ranking objective verified. 17 API tests passed, 47 workspace tests passed, Clippy passed, Anchor 39 tests passed. |
+| **4A** | **Anchor Architecture Hardening** | Complete | [`3d03089`](https://github.com/AhindraD/lend-rescue-protocol/commit/3d03089) — Redesigned `RecoveryPolicy` with `Option<Pubkey>` delegate, strict separation of `execution_nonce` (starts at 0, incremented only on successful recovery) and `policy_revision` (starts at 1, incremented on updates/revocation), and `schema_version = 2`. Adopted `InitSpace` derive across all program accounts (`space = 8 + Account::INIT_SPACE`). Standardized context-method instruction architecture (`impl<'info> AccountsStruct<'info>`). 42 Anchor integration tests passed, 50 workspace tests passed. |
 | **5** | **Protocol Adapters (Kamino, Pyth, Jupiter, Surfpool)** | Pending | Next planned phase. |
 | **6** | **Frontend Web Console & 3D Hero** | Pending | Next planned phase. |
 | **7** | **End-to-End Devnet Verification** | Pending | Final demonstration phase. |
@@ -131,7 +132,7 @@ LendRescue is built following strict phased gates. Completion is tracked authori
 - [SPEC.md](file:///home/kibi/web3projects/hackathons/mlh/lend-rescue-protocol/SPEC.md) — Comprehensive technical requirements and domain invariants.
 - [ARCHITECTURE.md](file:///home/kibi/web3projects/hackathons/mlh/lend-rescue-protocol/ARCHITECTURE.md) — Trust boundaries, data flows, and module responsibilities.
 - [TOOLCHAIN.md](file:///home/kibi/web3projects/hackathons/mlh/lend-rescue-protocol/TOOLCHAIN.md) — Verified toolchain versions and pinning rules.
-- [DECISIONS.md](file:///home/kibi/web3projects/hackathons/mlh/lend-rescue-protocol/DECISIONS.md) — ADRs (ADR-001 through ADR-010).
+- [DECISIONS.md](file:///home/kibi/web3projects/hackathons/mlh/lend-rescue-protocol/DECISIONS.md) — ADRs (ADR-001 through ADR-011).
 - [USER_STORIES.md](file:///home/kibi/web3projects/hackathons/mlh/lend-rescue-protocol/USER_STORIES.md) — End-to-end user stories and test expectations.
 - [SECURITY.md](file:///home/kibi/web3projects/hackathons/mlh/lend-rescue-protocol/SECURITY.md) — Threat model, failure modes, and security invariants.
 
@@ -140,7 +141,7 @@ LendRescue is built following strict phased gates. Completion is tracked authori
 ## Current Implementation
 
 The repository currently contains:
-- **Phase 1 & 2 Anchor Program (`programs/lend_rescue`)**: Deployed SBPF v3 contract with modular instructions, policy PDA validation, single-use nonce consumption, and `RecoveryReceipt` generation. Verified against 39 integration tests in Surfpool.
+- **Phase 1, 2 & 4A Hardened Anchor Program (`programs/lend_rescue`)**: Deployed SBPF v3 contract with modular instructions, canonical `InitSpace` account sizing, `Option<Pubkey>` delegate authorization, strict separation of `execution_nonce` (replay protection) and `policy_revision` (configuration versioning), `schema_version = 2`, and context-method instruction implementations. Verified against 42 integration tests in Surfpool.
 - **Phase 3 Deterministic Domain Engine (`crates/*`)**:
   - `crates/domain-types`: Domain models (`TokenAmount`, `Price`, `PositionSnapshot`, `RecoveryPolicy`, `HealthFactor`).
   - `crates/risk-engine`: Checked fixed-point calculations, collateral/debt valuation, synthetic Health Factor, liquidation prices, and oracle confidence interval validation.

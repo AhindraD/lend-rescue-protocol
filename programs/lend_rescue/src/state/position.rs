@@ -2,6 +2,7 @@ use crate::error::LendRescueError;
 use anchor_lang::prelude::*;
 
 #[account]
+#[derive(InitSpace)]
 pub struct Position {
     /// Owner of the lending position
     pub owner: Pubkey,
@@ -26,19 +27,6 @@ pub struct Position {
 }
 
 impl Position {
-    pub const LEN: usize = 8 // discriminator
-        + 32 // owner
-        + 32 // market
-        + 8  // position_id
-        + 8  // collateral_amount
-        + 8  // debt_amount
-        + 32 // collateral_mint
-        + 32 // debt_mint
-        + 1  // status
-        + 1  // version
-        + 1  // bump
-        + 32; // reserved padding
-
     /// Computes synthetic health factor scaled by HF_PRECISION (10_000 = 1.0000)
     /// Formula: (collateral_value * liquidation_threshold_bps) / debt_value
     #[allow(clippy::too_many_arguments)]
@@ -99,14 +87,11 @@ impl Position {
                 .ok_or(LendRescueError::MathOverflow)?;
         }
 
-        require!(den > 0, LendRescueError::DivisionByZero);
         let hf_u128 = num
             .checked_div(den)
             .ok_or(LendRescueError::DivisionByZero)?;
-        if hf_u128 > (u64::MAX as u128) {
-            Ok(u64::MAX)
-        } else {
-            Ok(hf_u128 as u64)
-        }
+        let hf = hf_u128 as u64;
+
+        Ok(hf)
     }
 }

@@ -3,6 +3,7 @@ use crate::error::LendRescueError;
 use anchor_lang::prelude::*;
 
 #[account]
+#[derive(InitSpace)]
 pub struct DemoSwapPool {
     /// Associated market
     pub market: Pubkey,
@@ -25,18 +26,6 @@ pub struct DemoSwapPool {
 }
 
 impl DemoSwapPool {
-    pub const LEN: usize = 8 // discriminator
-        + 32 // market
-        + 32 // input_mint
-        + 32 // output_mint
-        + 32 // input_vault
-        + 32 // output_vault
-        + 2  // fee_bps
-        + 32 // pool_authority
-        + 1  // version
-        + 1  // bump
-        + 32; // reserved padding
-
     /// Calculates deterministic constant-product swap output and fee
     pub fn calculate_swap_output(
         reserve_in: u64,

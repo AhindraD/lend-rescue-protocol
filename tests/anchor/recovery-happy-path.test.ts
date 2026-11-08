@@ -369,7 +369,8 @@ describe("LendRescue - Complete Recovery Happy-Path Lifecycle", () => {
       owner: owner.publicKey,
       authorizedDelegate: delegate.publicKey,
       isActive: true,
-      nonce: new BN(1),
+      executionNonce: new BN(0),
+      policyRevision: new BN(1),
     });
 
     // Owner approves delegate on SPL token accounts up to policy limits
@@ -409,7 +410,7 @@ describe("LendRescue - Complete Recovery Happy-Path Lifecycle", () => {
 
     // Delegate triggers recovery: repays 200 sUSDC from ownerDebtAccount
     const repayAmount = new BN(200_000000);
-    const nonce = new BN(1);
+    const nonce = new BN(0);
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     const args = {
@@ -462,9 +463,9 @@ describe("LendRescue - Complete Recovery Happy-Path Lifecycle", () => {
     });
     expect(postHf.toString()).to.equal("12000");
 
-    // Verify policy nonce consumed and incremented to 2
+    // Verify policy execution_nonce consumed and incremented to 1
     await assertPolicyState(program, policyPda, {
-      nonce: new BN(2),
+      executionNonce: new BN(1),
     });
 
     // Verify on-chain RecoveryReceipt
@@ -485,7 +486,7 @@ describe("LendRescue - Complete Recovery Happy-Path Lifecycle", () => {
 
     // Delegate posts 2 sSOL additional collateral from owner's account
     const addCollateralAmount = new BN(2_000000000); // 2 sSOL
-    const nonce = new BN(2);
+    const nonce = new BN(1);
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     const args = {
@@ -538,9 +539,9 @@ describe("LendRescue - Complete Recovery Happy-Path Lifecycle", () => {
     });
     expect(postHf.toString()).to.equal("14400");
 
-    // Verify policy nonce consumed and incremented to 3
+    // Verify policy execution_nonce consumed and incremented to 2
     await assertPolicyState(program, policyPda, {
-      nonce: new BN(3),
+      executionNonce: new BN(2),
     });
 
     // Verify on-chain RecoveryReceipt
@@ -571,7 +572,7 @@ describe("LendRescue - Complete Recovery Happy-Path Lifecycle", () => {
       30
     );
 
-    const nonce = new BN(3);
+    const nonce = new BN(2);
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     const minOutput = expectedAmountOut.mul(new BN(98)).div(new BN(100)); // 2% slippage tolerance
@@ -614,9 +615,9 @@ describe("LendRescue - Complete Recovery Happy-Path Lifecycle", () => {
       debtAmount: expectedDebtRemaining,
     });
 
-    // Policy nonce incremented to 4
+    // Policy execution_nonce incremented to 3
     await assertPolicyState(program, policyPda, {
-      nonce: new BN(4),
+      executionNonce: new BN(3),
     });
 
     // Verify on-chain RecoveryReceipt
@@ -643,16 +644,17 @@ describe("LendRescue - Complete Recovery Happy-Path Lifecycle", () => {
 
     await assertPolicyState(program, policyPda, {
       isActive: false,
-      nonce: new BN(5),
+      executionNonce: new BN(3),
+      policyRevision: new BN(2),
     });
 
     // Trying to execute recovery on revoked policy fails with PolicyRevoked
-    const [receiptPda] = getReceiptPda(positionPda, new BN(5));
+    const [receiptPda] = getReceiptPda(positionPda, new BN(3));
     const args = {
       action: ACTION_REPAY_DEBT,
       inputAmount: new BN(10_000000),
       minOutputAmount: new BN(0),
-      nonce: new BN(5),
+      nonce: new BN(3),
     };
 
     await assertCustomError(

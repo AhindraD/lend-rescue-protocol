@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[account]
+#[derive(InitSpace)]
 pub struct MarketConfig {
     /// Authority who initialized the market and can pause/unpause
     pub authority: Pubkey,
@@ -30,23 +31,4 @@ pub struct MarketConfig {
     pub version: u8,
     /// PDA bump
     pub bump: u8,
-}
-
-impl MarketConfig {
-    pub const LEN: usize = 8 // discriminator
-        + 32 // authority
-        + 8  // market_id
-        + 32 // collateral_mint
-        + 32 // debt_mint
-        + 32 // collateral_vault
-        + 1  // collateral_decimals
-        + 1  // debt_decimals
-        + 32 // collateral_oracle
-        + 32 // debt_oracle
-        + 2  // liquidation_threshold_bps
-        + 2  // demo_swap_fee_bps
-        + 1  // is_paused
-        + 1  // version
-        + 1  // bump
-        + 64; // reserved padding
 }

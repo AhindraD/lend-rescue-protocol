@@ -41,9 +41,10 @@ mod tests {
             min_resulting_hf: 12_500,
             allowed_actions: ACTION_REPAY_DEBT | ACTION_ADD_COLLATERAL | ACTION_SWAP_AND_REPAY,
             expiry: 2000000000,
-            nonce: 1,
+            execution_nonce: 0,
+            policy_revision: 1,
             is_active: true,
-            version: 1,
+            schema_version: 2,
         };
 
         // 1. Validate caller

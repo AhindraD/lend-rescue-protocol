@@ -242,7 +242,7 @@ describe("LendRescue - Recovery Failure Paths & Adversarial Scenarios", () => {
       policyPda
     );
 
-    const nonce = new BN(1);
+    const nonce = new BN(0);
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     const args = {
@@ -301,7 +301,7 @@ describe("LendRescue - Recovery Failure Paths & Adversarial Scenarios", () => {
       policyPda
     );
 
-    const nonce = new BN(1);
+    const nonce = new BN(0);
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     // Policy max is 200 sUSDC. Trying to repay 250 sUSDC must fail.
@@ -357,7 +357,7 @@ describe("LendRescue - Recovery Failure Paths & Adversarial Scenarios", () => {
       policyPda
     );
 
-    const nonce = new BN(1);
+    const nonce = new BN(0);
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     // Policy max collateral spend is 2 sSOL. Trying to spend 3 sSOL must fail.
@@ -405,7 +405,7 @@ describe("LendRescue - Recovery Failure Paths & Adversarial Scenarios", () => {
   });
 
   it("4. Rejects action not permitted by policy bitset (ActionNotAllowed)", async () => {
-    const nonce = new BN(1);
+    const nonce = new BN(0);
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     // SWAP_AND_REPAY was omitted from this policy's allowed_actions
@@ -465,7 +465,7 @@ describe("LendRescue - Recovery Failure Paths & Adversarial Scenarios", () => {
       policyPda
     );
 
-    const nonce = new BN(1);
+    const nonce = new BN(0);
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     const args = {
@@ -522,8 +522,8 @@ describe("LendRescue - Recovery Failure Paths & Adversarial Scenarios", () => {
   });
 
   it("6. Rejects replayed recovery nonce (InvalidNonce)", async () => {
-    // First execute a valid recovery with nonce 1 to advance nonce to 2
-    const nonce = new BN(1);
+    // First execute a valid recovery with nonce 0 to advance nonce to 1
+    const nonce = new BN(0);
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     const validArgs = {
@@ -556,12 +556,12 @@ describe("LendRescue - Recovery Failure Paths & Adversarial Scenarios", () => {
       .signers([delegate])
       .rpc();
 
-    // Now try to replay nonce 1 again!
-    // Case A: Attacker supplies receipt matching current policy nonce (2) but replays args.nonce = 1
-    const [receiptForCurrentNonce] = getReceiptPda(positionPda, new BN(2));
+    // Now try to replay nonce 0 again!
+    // Case A: Attacker supplies receipt matching current policy nonce (1) but replays args.nonce = 0
+    const [receiptForCurrentNonce] = getReceiptPda(positionPda, new BN(1));
     await assertCustomError(
       program.methods
-        .executeRecovery(validArgs) // validArgs.nonce is 1, but on-chain nonce is 2
+        .executeRecovery(validArgs) // validArgs.nonce is 0, but on-chain nonce is 1
         .accountsStrict({
           authority: delegate.publicKey,
           market: marketPda,
@@ -585,7 +585,7 @@ describe("LendRescue - Recovery Failure Paths & Adversarial Scenarios", () => {
       "InvalidNonce"
     );
 
-    // Case B: Attacker tries to pass the old receipt (nonce 1) -> blocked by PDA seeds constraint
+    // Case B: Attacker tries to pass the old receipt (nonce 0) -> blocked by PDA seeds constraint
     const [replayReceiptPda] = getReceiptPda(positionPda, nonce);
     await assertCustomError(
       program.methods
@@ -640,7 +640,7 @@ describe("LendRescue - Recovery Failure Paths & Adversarial Scenarios", () => {
 
     // 3. Delegate attempts swap with an impossible minOutputAmount (200 sUSDC when pool output is ~66 sUSDC)
     const policyAcc = await program.account.recoveryPolicy.fetch(policyPda);
-    const nonce = policyAcc.nonce;
+    const nonce = policyAcc.executionNonce;
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     const before = await snapshotState(
@@ -706,7 +706,7 @@ describe("LendRescue - Recovery Failure Paths & Adversarial Scenarios", () => {
       .rpc();
 
     const policyAcc = await program.account.recoveryPolicy.fetch(policyPda);
-    const nonce = policyAcc.nonce;
+    const nonce = policyAcc.executionNonce;
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     const before = await snapshotState(

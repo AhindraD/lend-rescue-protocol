@@ -10,27 +10,31 @@ pub struct RevokeRecoveryPolicy<'info> {
 
     #[account(
         mut,
-        has_one = owner @ LendRescueError::InvalidPolicyOwner
+        has_one = owner @ LendRescueError::InvalidPolicyOwner,
+        constraint = policy.is_active @ LendRescueError::PolicyRevoked
     )]
     pub policy: Account<'info, RecoveryPolicy>,
 }
 
-pub fn handle_revoke_recovery_policy(ctx: Context<RevokeRecoveryPolicy>) -> Result<()> {
-    let policy = &mut ctx.accounts.policy;
-    policy.is_active = false;
+impl<'info> RevokeRecoveryPolicy<'info> {
+    pub fn revoke_recovery_policy(&mut self) -> Result<()> {
+        let policy = &mut self.policy;
+        policy.is_active = false;
 
-    policy.nonce = policy
-        .nonce
-        .checked_add(1)
-        .ok_or(LendRescueError::MathOverflow)?;
+        // Increment policy revision to track configuration state change (execution_nonce is untouched)
+        policy.policy_revision = policy
+            .policy_revision
+            .checked_add(1)
+            .ok_or(LendRescueError::MathOverflow)?;
 
-    emit!(RecoveryPolicyRevokedEvent {
-        policy: policy.key(),
-        position: policy.position,
-        owner: policy.owner,
-        nonce: policy.nonce,
-        timestamp: Clock::get()?.unix_timestamp,
-    });
+        emit!(RecoveryPolicyRevokedEvent {
+            policy: policy.key(),
+            position: policy.position,
+            owner: policy.owner,
+            policy_revision: policy.policy_revision,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
 
-    Ok(())
+        Ok(())
+    }
 }

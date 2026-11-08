@@ -15,7 +15,7 @@ pub struct InitializeMarket<'info> {
     #[account(
         init,
         payer = authority,
-        space = MarketConfig::LEN,
+        space = 8 + MarketConfig::INIT_SPACE,
         seeds = [MARKET_SEED, &market_id.to_le_bytes()],
         bump
     )]
@@ -39,46 +39,49 @@ pub struct InitializeMarket<'info> {
     pub rent: Sysvar<'info, Rent>,
 }
 
-pub fn handle_initialize_market(
-    ctx: Context<InitializeMarket>,
-    market_id: u64,
-    liquidation_threshold_bps: u16,
-    demo_swap_fee_bps: u16,
-) -> Result<()> {
-    require!(
-        (1_000..=9_900).contains(&liquidation_threshold_bps),
-        LendRescueError::InvalidLiquidationThreshold
-    );
-    require!(demo_swap_fee_bps <= 1_000, LendRescueError::InvalidFeeBps);
-    require!(
-        ctx.accounts.collateral_mint.key() != ctx.accounts.debt_mint.key(),
-        LendRescueError::InvalidMint
-    );
+impl<'info> InitializeMarket<'info> {
+    pub fn initialize_market(
+        &mut self,
+        market_id: u64,
+        liquidation_threshold_bps: u16,
+        demo_swap_fee_bps: u16,
+        bump: u8,
+    ) -> Result<()> {
+        require!(
+            (1_000..=9_900).contains(&liquidation_threshold_bps),
+            LendRescueError::InvalidLiquidationThreshold
+        );
+        require!(demo_swap_fee_bps <= 1_000, LendRescueError::InvalidFeeBps);
+        require!(
+            self.collateral_mint.key() != self.debt_mint.key(),
+            LendRescueError::InvalidMint
+        );
 
-    let market = &mut ctx.accounts.market;
-    market.authority = ctx.accounts.authority.key();
-    market.market_id = market_id;
-    market.collateral_mint = ctx.accounts.collateral_mint.key();
-    market.debt_mint = ctx.accounts.debt_mint.key();
-    market.collateral_vault = ctx.accounts.collateral_vault.key();
-    market.collateral_decimals = ctx.accounts.collateral_mint.decimals;
-    market.debt_decimals = ctx.accounts.debt_mint.decimals;
-    market.collateral_oracle = Pubkey::default();
-    market.debt_oracle = Pubkey::default();
-    market.liquidation_threshold_bps = liquidation_threshold_bps;
-    market.demo_swap_fee_bps = demo_swap_fee_bps;
-    market.is_paused = false;
-    market.version = 1;
-    market.bump = ctx.bumps.market;
+        let market = &mut self.market;
+        market.authority = self.authority.key();
+        market.market_id = market_id;
+        market.collateral_mint = self.collateral_mint.key();
+        market.debt_mint = self.debt_mint.key();
+        market.collateral_vault = self.collateral_vault.key();
+        market.collateral_decimals = self.collateral_mint.decimals;
+        market.debt_decimals = self.debt_mint.decimals;
+        market.collateral_oracle = Pubkey::default();
+        market.debt_oracle = Pubkey::default();
+        market.liquidation_threshold_bps = liquidation_threshold_bps;
+        market.demo_swap_fee_bps = demo_swap_fee_bps;
+        market.is_paused = false;
+        market.version = 1;
+        market.bump = bump;
 
-    emit!(MarketInitializedEvent {
-        market: market.key(),
-        authority: ctx.accounts.authority.key(),
-        collateral_mint: market.collateral_mint,
-        debt_mint: market.debt_mint,
-        liquidation_threshold_bps,
-        timestamp: Clock::get()?.unix_timestamp,
-    });
+        emit!(MarketInitializedEvent {
+            market: market.key(),
+            authority: self.authority.key(),
+            collateral_mint: market.collateral_mint,
+            debt_mint: market.debt_mint,
+            liquidation_threshold_bps,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
 
-    Ok(())
+        Ok(())
+    }
 }

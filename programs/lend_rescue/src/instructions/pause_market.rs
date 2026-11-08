@@ -15,16 +15,18 @@ pub struct PauseMarket<'info> {
     pub market: Account<'info, MarketConfig>,
 }
 
-pub fn handle_pause_market(ctx: Context<PauseMarket>, is_paused: bool) -> Result<()> {
-    let market = &mut ctx.accounts.market;
-    market.is_paused = is_paused;
+impl<'info> PauseMarket<'info> {
+    pub fn pause_market(&mut self, is_paused: bool) -> Result<()> {
+        let market = &mut self.market;
+        market.is_paused = is_paused;
 
-    emit!(MarketPausedEvent {
-        market: market.key(),
-        authority: ctx.accounts.authority.key(),
-        is_paused,
-        timestamp: Clock::get()?.unix_timestamp,
-    });
+        emit!(MarketPausedEvent {
+            market: market.key(),
+            authority: self.authority.key(),
+            is_paused,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
 
-    Ok(())
+        Ok(())
+    }
 }

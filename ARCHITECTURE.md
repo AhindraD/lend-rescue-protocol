@@ -99,6 +99,12 @@ The Anchor smart contract treats the backend API as untrusted:
 - The contract **re-derives** post-execution balances directly from token accounts and recalculates post-$HF$ using on-chain integer math.
 - If the re-derived post-$HF$ is less than `policy.min_resulting_hf`, the program aborts with a typed error (`RecoveryError::ResultingHealthFactorTooLow`).
 
+### 3.3 Authorization Roles: Owner vs. Delegate vs. Token Authority vs. PDA
+- **Position Owner**: The original creator and owner of the Position account (`position.owner == owner.key()`). Holds exclusive authority to create, update, or revoke a `RecoveryPolicy`. The owner can always execute recovery on their own position regardless of whether a delegate is designated.
+- **Authorized Delegate**: An optional secondary execution authority designated in `RecoveryPolicy.authorized_delegate: Option<Pubkey>`. If `Some(delegate)`, either the delegate or the owner can invoke `execute_recovery`. If `None`, the policy enforces owner-only execution. A delegate has zero privilege to modify or revoke policies.
+- **SPL Token Account Authority**: The wallet authority authorized to debit user token accounts during direct debt repayment (`user_debt_account`) or collateral addition (`user_collateral_account`). Must be either the position owner or the authorized caller.
+- **PDA Signer Authorities**: Program-derived addresses (`market`, `demo_pool`) that execute CPI transfers and mint/burn operations on synthetic tokens without private keys using canonical seeds.
+
 ---
 
 ## 4. Layer Responsibilities
@@ -131,6 +137,13 @@ The Anchor smart contract treats the backend API as untrusted:
 ### 4.4 Anchor Smart Contract (`programs/lend_rescue`)
 - Modular architecture with one file per instruction (`src/instructions/*.rs`) and one file per account (`src/state/*.rs`).
 - Manages synthetic Devnet assets (`sSOL` collateral, `sUSDC` debt), market configurations (`MarketConfig`), mock oracles (`MockOracle`), user positions (`Position`), demo swap pools (`DemoSwapPool`), policies (`RecoveryPolicy`), and execution receipts (`RecoveryReceipt`).
+- **InitSpace Account Sizing**: All on-chain accounts derive `InitSpace`. Anchor computes exact struct sizes at compile time, eliminating manual byte math and arbitrary padding. Accounts are initialized via `space = 8 + Account::INIT_SPACE`.
+- **Context-Method Instruction Pattern**: Instruction logic is encapsulated within `impl<'info> AccountsStruct<'info>` methods (`&mut self` for state mutation, `&self` for read-only). Public program entrypoints in `lib.rs` remain minimal one-line dispatchers.
+- **Nonce & Revision Separation**:
+  - `execution_nonce: u64`: Initialized to 0. Incremented strictly upon successful recovery execution; serves as unique seed for `RecoveryReceipt` PDAs and replay defense.
+  - `policy_revision: u64`: Initialized to 1. Incremented on policy configuration updates and revocation. Ordinary recovery execution does not increment it.
+  - `schema_version: u8`: Set to constant `RECOVERY_POLICY_SCHEMA_VERSION = 2` for explicit on-chain layout versioning.
+- **Stack Frame Safety**: `ExecuteRecovery` leverages `Box<Account<'info, T>>` and `#[inline(never)]` helper methods for action branches, guaranteeing execution well within the Solana runtime 4KB stack boundary.
 - Guarantees complete atomic rollback on any failure.
 
 ---
@@ -188,11 +201,11 @@ $$\text{If any check fails, } \Delta \text{Balances} = 0 \land \Delta \text{Stat
 Order of evaluation in `execute_recovery`:
 1. Check `market_config.is_paused == false`.
 2. Verify account ownerships, mint relationships, and PDA seeds.
-3. Check `caller == policy.owner || caller == policy.authorized_delegate`.
+3. Check `policy.is_authorized_caller(&caller_key)` (`caller == policy.owner` or `Some(delegate) == caller`).
 4. Check `clock.unix_timestamp <= policy.expiry`.
 5. Check `policy.is_active == true`.
 6. Check `action` bit is set in `policy.allowed_actions`.
-7. Check `args.nonce == policy.nonce`.
+7. Check `args.nonce == policy.execution_nonce` (exact nonce replay defense).
 8. Validate oracle data (age $\le$ max allowed, confidence interval within threshold).
 9. Check repayment amount $\le$ `policy.max_debt_repayment`.
 10. Check collateral spend $\le$ `policy.max_collateral_spend`.
@@ -200,5 +213,5 @@ Order of evaluation in `execute_recovery`:
 12. Execute token CPIs and pool swap operations.
 13. Re-read balances and recompute on-chain synthetic Health Factor.
 14. Enforce `post_hf >= policy.min_resulting_hf`.
-15. Increment `policy.nonce` and write `RecoveryReceipt`.
+15. Increment `policy.execution_nonce` and write `RecoveryReceipt` (seeds `[b"receipt", position, nonce]`).
 16. Emit `RecoveryExecutedEvent`.

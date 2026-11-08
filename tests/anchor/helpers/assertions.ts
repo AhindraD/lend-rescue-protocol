@@ -62,28 +62,47 @@ export async function assertPolicyState(
   policyPubkey: PublicKey,
   expected: {
     owner?: PublicKey;
-    authorizedDelegate?: PublicKey;
+    authorizedDelegate?: PublicKey | null;
     isActive?: boolean;
     nonce?: BN | number;
+    executionNonce?: BN | number;
+    policyRevision?: BN | number;
+    schemaVersion?: number;
   }
 ): Promise<any> {
   const policy = await program.account.recoveryPolicy.fetch(policyPubkey);
   if (expected.owner) {
     expect(policy.owner.toBase58()).to.equal(expected.owner.toBase58());
   }
-  if (expected.authorizedDelegate) {
-    expect(policy.authorizedDelegate.toBase58()).to.equal(
-      expected.authorizedDelegate.toBase58()
-    );
+  if (expected.authorizedDelegate !== undefined) {
+    if (expected.authorizedDelegate === null) {
+      expect(policy.authorizedDelegate).to.be.null;
+    } else {
+      expect(policy.authorizedDelegate).to.not.be.null;
+      expect(policy.authorizedDelegate!.toBase58()).to.equal(
+        expected.authorizedDelegate.toBase58()
+      );
+    }
   }
   if (expected.isActive !== undefined) {
     expect(policy.isActive).to.equal(expected.isActive);
   }
-  if (expected.nonce !== undefined) {
-    const expectedNonceStr = BN.isBN(expected.nonce)
-      ? expected.nonce.toString()
-      : expected.nonce.toString();
-    expect(policy.nonce.toString()).to.equal(expectedNonceStr);
+  if (expected.executionNonce !== undefined) {
+    expect(policy.executionNonce.toString()).to.equal(
+      expected.executionNonce.toString()
+    );
+  } else if (expected.nonce !== undefined) {
+    expect(policy.executionNonce.toString()).to.equal(
+      expected.nonce.toString()
+    );
+  }
+  if (expected.policyRevision !== undefined) {
+    expect(policy.policyRevision.toString()).to.equal(
+      expected.policyRevision.toString()
+    );
+  }
+  if (expected.schemaVersion !== undefined) {
+    expect(policy.schemaVersion).to.equal(expected.schemaVersion);
   }
   return policy;
 }

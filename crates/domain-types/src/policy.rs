@@ -15,7 +15,7 @@ pub struct RecoveryPolicy {
     pub position: String,
     /// Owner of the position who authored this policy
     pub owner: String,
-    /// Designated delegate key (or None / empty for owner-only)
+    /// Designated delegate key (or None for owner-only)
     pub authorized_delegate: Option<String>,
     /// Maximum base units of debt token permitted for repayment
     pub max_debt_repayment: u64,
@@ -29,12 +29,14 @@ pub struct RecoveryPolicy {
     pub allowed_actions: u8,
     /// Unix timestamp when this policy expires
     pub expiry: i64,
-    /// Execution nonce (incremented on each successful recovery or update)
-    pub nonce: u64,
+    /// Execution nonce for replay protection (starts at 0, incremented only on successful recovery)
+    pub execution_nonce: u64,
+    /// Policy configuration revision (starts at 1, incremented on updates and revocation)
+    pub policy_revision: u64,
     /// Active status switch
     pub is_active: bool,
     /// Schema version
-    pub version: u8,
+    pub schema_version: u8,
 }
 
 impl RecoveryPolicy {
@@ -59,38 +61,39 @@ impl RecoveryPolicy {
 
     /// Checks if this policy is expired relative to current unix timestamp.
     pub fn is_expired(&self, current_timestamp: i64) -> bool {
-        current_timestamp >= self.expiry
+        current_timestamp > self.expiry
     }
 
-    /// Validates policy bounds against protocol constraints.
+    /// Returns the execution replay nonce.
+    pub fn nonce(&self) -> u64 {
+        self.execution_nonce
+    }
+
+    /// Returns the schema layout version.
+    pub fn version(&self) -> u8 {
+        self.schema_version
+    }
+
+    /// Validates basic policy invariant bounds.
     pub fn validate_bounds(&self) -> Result<(), DomainError> {
-        if self.allowed_actions == 0 || (self.allowed_actions & !ALL_ACTIONS_MASK) != 0 {
+        if self.max_debt_repayment == 0 || self.max_collateral_spend == 0 {
             return Err(DomainError::InvalidPolicy(
-                "Allowed actions must contain at least one valid action bit",
-            ));
-        }
-        if self.max_debt_repayment == 0
-            && (self.allowed_actions & (ACTION_REPAY_DEBT | ACTION_SWAP_AND_REPAY)) != 0
-        {
-            return Err(DomainError::InvalidPolicy(
-                "max_debt_repayment must be > 0 when repayment actions are enabled",
-            ));
-        }
-        if self.max_collateral_spend == 0
-            && (self.allowed_actions & (ACTION_ADD_COLLATERAL | ACTION_SWAP_AND_REPAY)) != 0
-        {
-            return Err(DomainError::InvalidPolicy(
-                "max_collateral_spend must be > 0 when collateral actions are enabled",
+                "Spending limits must be non-zero",
             ));
         }
         if self.max_slippage_bps > 1_000 {
             return Err(DomainError::InvalidPolicy(
-                "max_slippage_bps cannot exceed 1000 bps (10%)",
+                "Slippage exceeds 1000 bps maximum",
             ));
         }
         if self.min_resulting_hf < 10_000 {
             return Err(DomainError::InvalidPolicy(
-                "min_resulting_hf must be at least 1.0 (10,000 scaled)",
+                "Minimum resulting HF must be at least 1.0",
+            ));
+        }
+        if (self.allowed_actions & ALL_ACTIONS_MASK) == 0 {
+            return Err(DomainError::InvalidPolicy(
+                "At least one recovery action must be permitted",
             ));
         }
         Ok(())

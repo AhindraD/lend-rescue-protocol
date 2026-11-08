@@ -9,6 +9,8 @@ export interface AccountSnapshot {
   positionCollateral?: string;
   positionDebt?: string;
   policyNonce?: string;
+  policyExecutionNonce?: string;
+  policyRevision?: string;
   policyIsActive?: boolean;
 }
 
@@ -40,11 +42,15 @@ export async function snapshotState(
   }
 
   let policyNonce: string | undefined;
+  let policyExecutionNonce: string | undefined;
+  let policyRevision: string | undefined;
   let policyIsActive: boolean | undefined;
   if (policyPubkey) {
     try {
-      const pol = await program.account.recoveryPolicy.fetch(policyPubkey);
-      policyNonce = pol.nonce.toString();
+      const pol: any = await program.account.recoveryPolicy.fetch(policyPubkey);
+      policyExecutionNonce = pol.executionNonce?.toString();
+      policyRevision = pol.policyRevision?.toString();
+      policyNonce = policyExecutionNonce ?? pol.nonce?.toString();
       policyIsActive = pol.isActive;
     } catch {}
   }
@@ -54,6 +60,8 @@ export async function snapshotState(
     positionCollateral,
     positionDebt,
     policyNonce,
+    policyExecutionNonce,
+    policyRevision,
     policyIsActive,
   };
 }
@@ -88,6 +96,20 @@ export function assertSnapshotsEqual(
       after.policyNonce,
       "Policy nonce changed across failed transaction!"
     ).to.equal(before.policyNonce);
+  }
+
+  if (before.policyExecutionNonce !== undefined) {
+    expect(
+      after.policyExecutionNonce,
+      "Policy execution nonce changed across failed transaction!"
+    ).to.equal(before.policyExecutionNonce);
+  }
+
+  if (before.policyRevision !== undefined) {
+    expect(
+      after.policyRevision,
+      "Policy revision changed across failed transaction!"
+    ).to.equal(before.policyRevision);
   }
 
   if (before.policyIsActive !== undefined) {

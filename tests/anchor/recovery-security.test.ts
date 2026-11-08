@@ -260,7 +260,7 @@ describe("LendRescue - Recovery Security & Account Substitution Defenses", () =>
       .rpc();
 
     // Attacker attempts to pass rogueOraclePda as collateral_oracle to execute_recovery
-    const nonce = new BN(1);
+    const nonce = new BN(0);
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     const args = {
@@ -306,7 +306,7 @@ describe("LendRescue - Recovery Security & Account Substitution Defenses", () =>
       attacker.publicKey
     );
 
-    const nonce = new BN(1);
+    const nonce = new BN(0);
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     const args = {
@@ -354,7 +354,7 @@ describe("LendRescue - Recovery Security & Account Substitution Defenses", () =>
       rogueVictim.publicKey
     );
 
-    const nonce = new BN(1);
+    const nonce = new BN(0);
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     const args = {
@@ -401,7 +401,7 @@ describe("LendRescue - Recovery Security & Account Substitution Defenses", () =>
       })
       .rpc();
 
-    const nonce = new BN(1);
+    const nonce = new BN(0);
     const [receiptPda] = getReceiptPda(positionPda, nonce);
 
     const args = {

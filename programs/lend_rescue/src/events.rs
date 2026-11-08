@@ -74,11 +74,12 @@ pub struct RecoveryPolicyCreatedEvent {
     pub policy: Pubkey,
     pub position: Pubkey,
     pub owner: Pubkey,
-    pub authorized_delegate: Pubkey,
+    pub authorized_delegate: Option<Pubkey>,
     pub max_debt_repayment: u64,
     pub max_collateral_spend: u64,
     pub min_resulting_hf: u64,
-    pub nonce: u64,
+    pub execution_nonce: u64,
+    pub policy_revision: u64,
     pub expiry: i64,
     pub timestamp: i64,
 }
@@ -88,8 +89,8 @@ pub struct RecoveryPolicyUpdatedEvent {
     pub policy: Pubkey,
     pub position: Pubkey,
     pub owner: Pubkey,
-    pub authorized_delegate: Pubkey,
-    pub new_nonce: u64,
+    pub authorized_delegate: Option<Pubkey>,
+    pub policy_revision: u64,
     pub new_expiry: i64,
     pub timestamp: i64,
 }
@@ -99,7 +100,7 @@ pub struct RecoveryPolicyRevokedEvent {
     pub policy: Pubkey,
     pub position: Pubkey,
     pub owner: Pubkey,
-    pub nonce: u64,
+    pub policy_revision: u64,
     pub timestamp: i64,
 }
 

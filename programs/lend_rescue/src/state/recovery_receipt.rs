@@ -1,6 +1,7 @@
 use anchor_lang::prelude::*;
 
 #[account]
+#[derive(InitSpace)]
 pub struct RecoveryReceipt {
     /// Position that was rescued
     pub position: Pubkey,
@@ -34,25 +35,4 @@ pub struct RecoveryReceipt {
     pub version: u8,
     /// PDA bump
     pub bump: u8,
-}
-
-impl RecoveryReceipt {
-    pub const LEN: usize = 8 // discriminator
-        + 32 // position
-        + 32 // owner
-        + 32 // policy
-        + 32 // delegate
-        + 1  // action_executed
-        + 8  // input_amount
-        + 8  // output_amount
-        + 8  // repayment_amount
-        + 8  // pre_health_factor
-        + 8  // post_health_factor
-        + 8  // nonce_consumed
-        + 8  // execution_slot
-        + 8  // execution_timestamp
-        + 1  // status
-        + 1  // version
-        + 1  // bump
-        + 32; // reserved padding
 }

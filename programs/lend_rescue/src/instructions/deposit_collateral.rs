@@ -34,34 +34,33 @@ pub struct DepositCollateral<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-pub fn handle_deposit_collateral(ctx: Context<DepositCollateral>, amount: u64) -> Result<()> {
-    require!(
-        !ctx.accounts.market.is_paused,
-        LendRescueError::MarketPaused
-    );
-    require!(amount > 0, LendRescueError::ZeroAmount);
+impl<'info> DepositCollateral<'info> {
+    pub fn deposit_collateral(&mut self, amount: u64) -> Result<()> {
+        require!(!self.market.is_paused, LendRescueError::MarketPaused);
+        require!(amount > 0, LendRescueError::ZeroAmount);
 
-    let cpi_accounts = Transfer {
-        from: ctx.accounts.owner_collateral_account.to_account_info(),
-        to: ctx.accounts.collateral_vault.to_account_info(),
-        authority: ctx.accounts.owner.to_account_info(),
-    };
-    let cpi_ctx = CpiContext::new(ctx.accounts.token_program.key(), cpi_accounts);
-    token::transfer(cpi_ctx, amount)?;
+        let cpi_accounts = Transfer {
+            from: self.owner_collateral_account.to_account_info(),
+            to: self.collateral_vault.to_account_info(),
+            authority: self.owner.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new(self.token_program.key(), cpi_accounts);
+        token::transfer(cpi_ctx, amount)?;
 
-    let position = &mut ctx.accounts.position;
-    position.collateral_amount = position
-        .collateral_amount
-        .checked_add(amount)
-        .ok_or(LendRescueError::MathOverflow)?;
+        let position = &mut self.position;
+        position.collateral_amount = position
+            .collateral_amount
+            .checked_add(amount)
+            .ok_or(LendRescueError::MathOverflow)?;
 
-    emit!(CollateralDepositedEvent {
-        position: position.key(),
-        owner: position.owner,
-        amount,
-        total_collateral: position.collateral_amount,
-        timestamp: Clock::get()?.unix_timestamp,
-    });
+        emit!(CollateralDepositedEvent {
+            position: position.key(),
+            owner: position.owner,
+            amount,
+            total_collateral: position.collateral_amount,
+            timestamp: Clock::get()?.unix_timestamp,
+        });
 
-    Ok(())
+        Ok(())
+    }
 }

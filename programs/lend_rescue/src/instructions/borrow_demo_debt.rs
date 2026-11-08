@@ -1,7 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, MintTo, Token, TokenAccount};
 
-use crate::constants::{MAX_ORACLE_AGE_SECS, MIN_SAFE_HF};
+use crate::constants::{MARKET_SEED, MAX_ORACLE_AGE_SECS, MIN_SAFE_HF};
 use crate::error::LendRescueError;
 use crate::events::DemoDebtBorrowedEvent;
 use crate::state::{MarketConfig, MockOracle, Position};
@@ -45,82 +45,69 @@ pub struct BorrowDemoDebt<'info> {
     pub token_program: Program<'info, Token>,
 }
 
-pub fn handle_borrow_demo_debt(ctx: Context<BorrowDemoDebt>, amount: u64) -> Result<()> {
-    require!(
-        !ctx.accounts.market.is_paused,
-        LendRescueError::MarketPaused
-    );
-    require!(amount > 0, LendRescueError::ZeroAmount);
+impl<'info> BorrowDemoDebt<'info> {
+    pub fn borrow_demo_debt(&mut self, amount: u64) -> Result<()> {
+        require!(!self.market.is_paused, LendRescueError::MarketPaused);
+        require!(amount > 0, LendRescueError::ZeroAmount);
 
-    let now = Clock::get()?.unix_timestamp;
-    require!(
-        ctx.accounts
-            .collateral_oracle
-            .is_fresh(now, MAX_ORACLE_AGE_SECS),
-        LendRescueError::StaleOracle
-    );
-    require!(
-        ctx.accounts.debt_oracle.is_fresh(now, MAX_ORACLE_AGE_SECS),
-        LendRescueError::StaleOracle
-    );
+        let now = Clock::get()?.unix_timestamp;
+        require!(
+            self.collateral_oracle.is_fresh(now, MAX_ORACLE_AGE_SECS),
+            LendRescueError::StaleOracle
+        );
+        require!(
+            self.debt_oracle.is_fresh(now, MAX_ORACLE_AGE_SECS),
+            LendRescueError::StaleOracle
+        );
 
-    let position = &ctx.accounts.position;
-    require!(
-        position.collateral_amount > 0,
-        LendRescueError::InsufficientCollateral
-    );
+        let position = &self.position;
+        let new_debt = position
+            .debt_amount
+            .checked_add(amount)
+            .ok_or(LendRescueError::MathOverflow)?;
 
-    let proposed_debt = position
-        .debt_amount
-        .checked_add(amount)
-        .ok_or(LendRescueError::MathOverflow)?;
+        let market = &self.market;
+        let resulting_hf = Position::compute_synthetic_hf(
+            position.collateral_amount,
+            self.collateral_oracle.price,
+            self.collateral_oracle.exponent,
+            market.collateral_decimals,
+            new_debt,
+            self.debt_oracle.price,
+            self.debt_oracle.exponent,
+            market.debt_decimals,
+            market.liquidation_threshold_bps,
+        )?;
 
-    let market = &ctx.accounts.market;
-    let proposed_hf = Position::compute_synthetic_hf(
-        position.collateral_amount,
-        ctx.accounts.collateral_oracle.price,
-        ctx.accounts.collateral_oracle.exponent,
-        market.collateral_decimals,
-        proposed_debt,
-        ctx.accounts.debt_oracle.price,
-        ctx.accounts.debt_oracle.exponent,
-        market.debt_decimals,
-        market.liquidation_threshold_bps,
-    )?;
+        require!(
+            resulting_hf >= MIN_SAFE_HF,
+            LendRescueError::BorrowLimitExceeded
+        );
 
-    require!(
-        proposed_hf >= MIN_SAFE_HF,
-        LendRescueError::BorrowLimitExceeded
-    );
+        // CPI MintTo: Mint synthetic debt tokens from market authority PDA to user debt account
+        let market_id_bytes = market.market_id.to_le_bytes();
+        let seeds = &[MARKET_SEED, &market_id_bytes[..], &[market.bump]];
+        let signer = &[&seeds[..]];
 
-    // Mint synthetic debt tokens to the borrower using market PDA authority
-    let market_id_bytes = market.market_id.to_le_bytes();
-    let seeds = &[
-        crate::constants::MARKET_SEED,
-        market_id_bytes.as_ref(),
-        &[market.bump],
-    ];
-    let signer = &[&seeds[..]];
+        let cpi_accounts = MintTo {
+            mint: self.debt_mint.to_account_info(),
+            to: self.owner_debt_account.to_account_info(),
+            authority: self.market.to_account_info(),
+        };
+        let cpi_ctx = CpiContext::new_with_signer(self.token_program.key(), cpi_accounts, signer);
+        token::mint_to(cpi_ctx, amount)?;
 
-    let cpi_accounts = MintTo {
-        mint: ctx.accounts.debt_mint.to_account_info(),
-        to: ctx.accounts.owner_debt_account.to_account_info(),
-        authority: ctx.accounts.market.to_account_info(),
-    };
-    let cpi_ctx =
-        CpiContext::new_with_signer(ctx.accounts.token_program.key(), cpi_accounts, signer);
-    token::mint_to(cpi_ctx, amount)?;
+        let position_mut = &mut self.position;
+        position_mut.debt_amount = new_debt;
 
-    let position = &mut ctx.accounts.position;
-    position.debt_amount = proposed_debt;
+        emit!(DemoDebtBorrowedEvent {
+            position: position_mut.key(),
+            owner: position_mut.owner,
+            amount,
+            total_debt: new_debt,
+            timestamp: now,
+        });
 
-    emit!(DemoDebtBorrowedEvent {
-        position: position.key(),
-        owner: position.owner,
-        amount,
-        total_debt: position.debt_amount,
-        timestamp: now,
-    });
-
-    Ok(())
+        Ok(())
+    }
 }
