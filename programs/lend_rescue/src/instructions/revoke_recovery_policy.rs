@@ -34,3 +34,4 @@ pub fn handle_revoke_recovery_policy(ctx: Context<RevokeRecoveryPolicy>) -> Resu
 
     Ok(())
 }
+

@@ -49,3 +49,4 @@ pub fn handle_update_mock_price(
 
     Ok(())
 }
+

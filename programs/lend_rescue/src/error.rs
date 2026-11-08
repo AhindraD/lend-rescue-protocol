@@ -104,3 +104,4 @@ pub enum LendRescueError {
     #[msg("Arithmetic calculation resulted in division by zero")]
     DivisionByZero,
 }
+

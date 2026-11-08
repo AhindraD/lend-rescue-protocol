@@ -50,3 +50,4 @@ impl MarketConfig {
         + 1  // bump
         + 64; // reserved padding
 }
+

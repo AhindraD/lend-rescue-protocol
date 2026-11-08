@@ -56,3 +56,4 @@ impl RecoveryReceipt {
         + 1  // bump
         + 32; // reserved padding
 }
+

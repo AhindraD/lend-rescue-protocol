@@ -28,3 +28,4 @@ pub fn handle_pause_market(ctx: Context<PauseMarket>, is_paused: bool) -> Result
 
     Ok(())
 }
+
