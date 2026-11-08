@@ -8,6 +8,7 @@ onlyBuiltDependencies:
   - "bigint-buffer"
   - "bufferutil"
   - "esbuild"
+  - "ffmpeg-static"
   - "sharp"
   - "utf-8-validate"
 
@@ -16,5 +17,6 @@ allowBuilds:
   bigint-buffer: true
   bufferutil: true
   esbuild: true
+  ffmpeg-static: true
   sharp: true
   utf-8-validate: true
