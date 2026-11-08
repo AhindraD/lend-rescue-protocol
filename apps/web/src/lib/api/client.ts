@@ -7,6 +7,7 @@ import {
   type PositionFilterQuery,
   type RiskAssessmentResponse,
   type PriceDto,
+  type OraclePriceResponse,
   type RecoveryQuoteRequest,
   type RecoveryPlanDto,
   type RecoveryOptimizeRequest,
@@ -102,8 +103,8 @@ export const getPositionRisk = (
 
 // ─── Oracles ──────────────────────────────────────────────────────────────────
 
-export const getOraclePrice = (assetId: string): Promise<PriceDto> =>
-  apiFetch<PriceDto>(API_ENDPOINTS.ORACLE_PRICE(assetId));
+export const getOraclePrice = (assetId: string): Promise<OraclePriceResponse> =>
+  apiFetch<OraclePriceResponse>(API_ENDPOINTS.ORACLE_PRICE(assetId));
 
 // ─── Recovery Strategy ────────────────────────────────────────────────────────
 

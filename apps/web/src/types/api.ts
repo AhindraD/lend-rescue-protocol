@@ -104,6 +104,17 @@ export interface PositionFilterQuery {
   riskBand?: string;
 }
 
+// ─── Oracle Types ─────────────────────────────────────────────────────────────
+
+export interface OraclePriceResponse {
+  assetId: string;
+  price: PriceDto;
+  isStale: boolean;
+  isValid: boolean;
+  dataSource: string;
+  ageSecs: number;
+}
+
 // ─── Risk Assessment ──────────────────────────────────────────────────────────
 
 export type RiskBand = "Safe" | "Moderate" | "Warning" | "Critical" | "Unknown";
