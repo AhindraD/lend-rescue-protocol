@@ -22,9 +22,18 @@ pub struct RiskAssessmentResponse {
     pub distance_to_liquidation_bps: Option<i64>,
     pub data_provenance: String,
     pub evaluated_at: i64,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub protocol_metrics: Option<crate::dto::position::ProtocolRiskMetricsDto>,
 }
 
 impl RiskAssessmentResponse {
+    pub fn with_protocol_metrics(
+        mut self,
+        metrics: Option<crate::dto::position::ProtocolRiskMetricsDto>,
+    ) -> Self {
+        self.protocol_metrics = metrics;
+        self
+    }
     pub fn from_profile(
         position_id: impl Into<String>,
         profile: &domain_types::RiskProfile,
@@ -60,6 +69,7 @@ impl RiskAssessmentResponse {
             distance_to_liquidation_bps: profile.distance_to_liquidation_bps,
             data_provenance: provenance.into(),
             evaluated_at,
+            protocol_metrics: None,
         }
     }
 }

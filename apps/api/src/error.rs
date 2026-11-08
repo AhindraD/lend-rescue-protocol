@@ -27,6 +27,9 @@ pub enum ApiError {
 
     #[error("Internal service error: {0}")]
     Internal(String),
+
+    #[error("Request timed out: {0}")]
+    Timeout(String),
 }
 
 impl ApiError {
@@ -50,6 +53,7 @@ impl ApiError {
             },
             ApiError::Database(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::Timeout(_) => StatusCode::GATEWAY_TIMEOUT,
         }
     }
 
@@ -72,6 +76,7 @@ impl ApiError {
             },
             ApiError::Database(_) => "DATABASE_ERROR",
             ApiError::Internal(_) => "INTERNAL_ERROR",
+            ApiError::Timeout(_) => "TIMEOUT",
         }
     }
 }

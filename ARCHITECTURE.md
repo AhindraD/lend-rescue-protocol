@@ -147,6 +147,12 @@ The Anchor smart contract treats the backend API as untrusted:
 - Guarantees complete atomic rollback on any failure.
 
 ### 4.5 Protocol & Oracle Adapters (`apps/api/src/adapters`)
+- **Kamino Read-Only Lending Adapter (`apps/adapters/kamino` & `apps/api/src/adapters/kamino`)**:
+  - **SDK Isolation Boundary**: The official `@kamino-finance/klend-sdk@13.0.6` depends on modern `@solana/kit@2.3.0` and legacy `@coral-xyz/anchor@0.28.0`. It is isolated in an independent Node/TypeScript service (`apps/adapters/kamino`) binding to internal loopback (`127.0.0.1:3002`), completely shielding the root Anchor 1.2.2 toolchain and `@solana/web3.js@1.99.0` lock.
+  - **Strict Read-Only Boundary**: Purely non-custodial and advisory. Forbidden from constructing, signing, or broadcasting lending transactions (deposit, withdraw, borrow, repay, liquidate). Verified by automated AST and interface inspection tests.
+  - **Multi-Asset Position Normalization**: Preserves multi-asset collateral deposits (e.g. SOL, bSOL) and debt borrows (e.g. USDC, USDT) with exact base units (`u64`), decimals, and USD valuations, without lossy projection or flattening.
+  - **Official Protocol Metrics Preservation**: Ingests and preserves Kamino's native obligation risk parameters (`borrowLimit`, `liquidationThreshold`, `loanToValue`, `borrowUtilization`, `netAccountValue`), keeping official protocol numbers distinct from generic synthetic models.
+  - **Slot Consistency & Drift Defense**: Evaluates reserves and obligations against coherent `LedgerInstant` (slot and block time). Rejects cross-account observations exceeding configurable slot drift (`max_slot_drift = 50`) with typed `InconsistentSlotError` / 409 Conflict.
 - **Pyth Core Price Provider (`PythOracleProvider`)**:
   - Read-only persistent on-chain Pyth Core integration decoding Anchor `PriceUpdateV2` Borsh accounts under program `rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ` as well as legacy Pyth price accounts.
   - Zero-Trust Validation: Enforces positive price mantissa, confidence interval bounds (default $\le 200$ bps), freshness bounds ($\le 60$s), plausible publication timestamp (rejecting future timestamps), and feed identity verification (`0xef0d8b...` for SOL/USD, `0xeaa020...` for USDC/USD).

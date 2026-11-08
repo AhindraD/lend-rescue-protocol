@@ -23,6 +23,12 @@ pub struct AppConfig {
     pub pyth_api_key: Option<String>,
     pub hermes_url: Option<String>,
     pub oracle_source: String,
+
+    // Kamino Protocol Adapter Configuration (Phase 5B)
+    pub kamino_adapter_url: String,
+    pub kamino_market_address: String,
+    pub kamino_request_timeout_ms: u64,
+    pub position_source: String,
 }
 
 impl fmt::Debug for AppConfig {
@@ -123,6 +129,19 @@ impl AppConfig {
 
         let oracle_source = env::var("ORACLE_SOURCE").unwrap_or_else(|_| "demo".to_string());
 
+        let kamino_adapter_url =
+            env::var("KAMINO_ADAPTER_URL").unwrap_or_else(|_| "http://127.0.0.1:3002".to_string());
+
+        let kamino_market_address = env::var("KAMINO_DEFAULT_MARKET")
+            .unwrap_or_else(|_| "7u3HeHxatcAACvdFtHGryaZWwZxKhqWisdHJaJBYbugj".to_string());
+
+        let kamino_request_timeout_ms: u64 = env::var("KAMINO_REQUEST_TIMEOUT_MS")
+            .unwrap_or_else(|_| "10000".to_string())
+            .parse()
+            .map_err(|e| format!("Invalid KAMINO_REQUEST_TIMEOUT_MS: {}", e))?;
+
+        let position_source = env::var("POSITION_SOURCE").unwrap_or_else(|_| "demo".to_string());
+
         Ok(Self {
             bind_host,
             bind_port,
@@ -140,6 +159,10 @@ impl AppConfig {
             pyth_api_key,
             hermes_url,
             oracle_source,
+            kamino_adapter_url,
+            kamino_market_address,
+            kamino_request_timeout_ms,
+            position_source,
         })
     }
 
@@ -162,6 +185,10 @@ impl AppConfig {
             pyth_api_key: None,
             hermes_url: Some("https://hermes.pyth.network".to_string()),
             oracle_source: "demo".to_string(),
+            kamino_adapter_url: "http://127.0.0.1:3002".to_string(),
+            kamino_market_address: "7u3HeHxatcAACvdFtHGryaZWwZxKhqWisdHJaJBYbugj".to_string(),
+            kamino_request_timeout_ms: 10000,
+            position_source: "demo".to_string(),
         }
     }
 }

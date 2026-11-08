@@ -47,12 +47,32 @@ impl AppState {
                 _ => demo_provider.clone(),
             };
 
+        let position_provider: Arc<dyn crate::providers::PositionProvider> =
+            match config.position_source.to_ascii_lowercase().as_str() {
+                "kamino" => {
+                    let kamino_config = crate::adapters::KaminoAdapterConfig::new(
+                        &config.kamino_adapter_url,
+                        &config.kamino_market_address,
+                    )
+                    .with_request_timeout_ms(config.kamino_request_timeout_ms);
+
+                    let transport = Arc::new(crate::adapters::KaminoHttpTransport::new(
+                        kamino_config.clone(),
+                    ));
+                    Arc::new(crate::adapters::KaminoPositionProvider::new(
+                        kamino_config,
+                        transport,
+                    ))
+                }
+                _ => demo_provider.clone(),
+            };
+
         let snapshot_repo = SnapshotRepository::new(db_pool.clone());
         let _observation_repo = ObservationRepository::new(db_pool.clone());
         let recommendation_repo = RecommendationRepository::new(db_pool.clone());
 
         let market_service = MarketService::new(demo_provider.clone());
-        let position_service = PositionService::new(demo_provider.clone(), snapshot_repo);
+        let position_service = PositionService::new(position_provider.clone(), snapshot_repo);
         let risk_service = RiskService::new(position_service.clone(), oracle_provider.clone());
         let recovery_service = RecoveryService::new(
             position_service.clone(),

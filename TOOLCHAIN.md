@@ -85,6 +85,19 @@ To preserve stability and avoid broken peer dependency graphs:
 2. Never float web3.js dependencies to `^2.0.0` or `^3.0.0` in the Anchor execution path.
 3. If future non-Anchor client modules explore Solana Kit / web3.js v2, they must be isolated in independent sub-packages behind an explicit adapter boundary.
 
+### 3.3 Kamino Lending SDK & Solana Kit Isolation Boundary
+To consume Kamino Lending's official TypeScript SDK without corrupting root Anchor 1.2.2:
+- **Package**: `@kamino-finance/klend-sdk` pinned to `13.0.6` (latest stable verified).
+- **Location**: `apps/adapters/kamino` (configured as an isolated workspace package in `pnpm-workspace.yaml`).
+- **Internal Dependencies**:
+  - `@solana/kit`: `2.3.0` (modern kit transport and RPC client)
+  - `@solana/web3.js`: `1.98.0` (adapter internal bridge)
+  - `decimal.js`: `^10.4.3` (fixed-precision calculations)
+  - `express`: `^4.21.2` (loopback micro-service HTTP router)
+- **Node.js Runtime**: Verified on `26.10.0` (Active LTS).
+- **TypeScript**: `5.7.3` in adapter, compatible with root `5.9.3`.
+- **Isolation Guarantee**: The Kamino adapter runs as an independent daemon bound strictly to `127.0.0.1:3002`. Neither `@solana/kit` nor `@coral-xyz/anchor@0.28.0` are ever loaded into the root Anchor program build or the integration test suite. Root tests continue executing against `@anchor-lang/core@1.2.2` and `@solana/web3.js@1.99.0`.
+
 ---
 
 ## 4. Surfpool Configuration

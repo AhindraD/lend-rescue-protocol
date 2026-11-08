@@ -53,6 +53,11 @@ impl DemoProvider {
                 liquidation_threshold_bps: 8500,
                 protocol_source: ProtocolSource::SyntheticDemo,
                 market_id: Some(1),
+                collateral_positions: vec![],
+                debt_positions: vec![],
+                protocol_metrics: None,
+                market_address: None,
+                observation_slot: None,
             },
         );
 
@@ -69,6 +74,11 @@ impl DemoProvider {
                 liquidation_threshold_bps: 8500,
                 protocol_source: ProtocolSource::SyntheticDemo,
                 market_id: Some(1),
+                collateral_positions: vec![],
+                debt_positions: vec![],
+                protocol_metrics: None,
+                market_address: None,
+                observation_slot: None,
             },
         );
 
@@ -85,6 +95,11 @@ impl DemoProvider {
                 liquidation_threshold_bps: 8500,
                 protocol_source: ProtocolSource::SyntheticDemo,
                 market_id: Some(1),
+                collateral_positions: vec![],
+                debt_positions: vec![],
+                protocol_metrics: None,
+                market_address: None,
+                observation_slot: None,
             },
         );
 
@@ -101,6 +116,11 @@ impl DemoProvider {
                 liquidation_threshold_bps: 8500,
                 protocol_source: ProtocolSource::SyntheticDemo,
                 market_id: Some(1),
+                collateral_positions: vec![],
+                debt_positions: vec![],
+                protocol_metrics: None,
+                market_address: None,
+                observation_slot: None,
             },
         );
 

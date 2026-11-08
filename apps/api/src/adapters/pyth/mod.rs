@@ -16,4 +16,3 @@ pub use transport::{
     AccountDataResult, HermesPriceUpdate, HermesTransport, MockHermesTransport,
     MockSolanaRpcTransport, SolanaRpcTransport,
 };
-

@@ -1,6 +1,7 @@
 pub mod amount;
 pub mod asset;
 pub mod error;
+pub mod kamino;
 pub mod market;
 pub mod policy;
 pub mod position;
@@ -11,12 +12,18 @@ pub mod risk;
 pub use amount::TokenAmount;
 pub use asset::{Asset, AssetId};
 pub use error::DomainError;
+pub use kamino::{
+    KaminoBorrowSnapshot, KaminoDepositSnapshot, KaminoMarketSnapshot, KaminoObligationSnapshot,
+    KaminoProtocolMetrics, KaminoReserveSnapshot,
+};
 pub use market::MarketConfig;
 pub use policy::{
     RecoveryPolicy, ACTION_ADD_COLLATERAL, ACTION_REPAY_DEBT, ACTION_SWAP_AND_REPAY,
     ALL_ACTIONS_MASK,
 };
-pub use position::{PositionSnapshot, ProtocolSource};
+pub use position::{
+    PositionBorrow, PositionDeposit, PositionSnapshot, ProtocolRiskMetrics, ProtocolSource,
+};
 pub use price::Price;
 pub use recovery::{RecoveryAction, RecoveryCandidate, ScoreBreakdown};
 pub use risk::{HealthFactor, RiskBand, RiskProfile, RiskThresholds};

@@ -211,3 +211,26 @@ This document records the architectural and design decisions made for LendRescue
   - *Positive*: Fail-closed security guarantee against stale, rogue, or out-of-bounds oracle inputs.
   - *Positive*: Full deterministic testability offline via in-memory mock transports.
 
+---
+
+### ADR-013: Kamino SDK Isolation, Read-Only Security Boundary, and Multi-Asset Obligation Normalization
+
+- **Status**: Accepted
+- **Context**:
+  1. Kamino Lending operates complex multi-reserve lending markets on Solana. Its official SDK (`@kamino-finance/klend-sdk@13.0.6`) depends on modern `@solana/kit@2.3.0` and legacy `@coral-xyz/anchor@0.28.0`. Integrating these directly into the root workspace would contaminate the pinned Anchor CLI 1.2.2 / `@anchor-lang/core@1.2.2` toolchain lock.
+  2. The LendRescue backend is advisory and non-custodial. The adapter must guarantee that it cannot execute lending actions or construct/sign transactions.
+  3. Kamino obligations support multiple collateral assets (e.g. SOL, bSOL) and debt assets (e.g. USDC, USDT), and compute official protocol risk statistics (`borrowLimit`, `liquidationThreshold`, `borrowUtilization`, `loanToValue`, `netAccountValue`). Truncating multi-asset positions to single pairs or overwriting Kamino's metrics with generic formulas creates misleading risk assessments.
+  4. Solana RPC queries across multiple accounts can suffer slot drift if not evaluated at a coherent ledger instant.
+- **Decision**:
+  1. **SDK Dependency Isolation**: Encapsulate `@kamino-finance/klend-sdk@13.0.6` in an isolated Node/TypeScript micro-service (`apps/adapters/kamino`) exposing private loopback HTTP endpoints (`127.0.0.1:3002`), fully shielding the Rust API and root Anchor toolchain lock.
+  2. **Read-Only Security Invariant**: The adapter strictly queries account state, reserves, and user obligations. It contains zero private key handling, zero signing capabilities, and zero write methods (deposit, withdraw, borrow, repay, liquidate). Enforced through automated AST and interface inspection tests.
+  3. **Multi-Asset Normalization**: Domain types (`PositionSnapshot`) and API DTOs are extended with `collateral_positions` and `debt_positions` preserving every deposited and borrowed asset with exact base units (`u64`), decimals, and USD valuations, with 100% backward compatibility for single-asset consumers.
+  4. **Preservation of Official Protocol Risk Metrics**: Ingest and preserve Kamino's exact protocol-reported risk metrics (`borrow_limit_usd`, `liquidation_threshold_usd`, `loan_to_value_bps`, `borrow_utilization_bps`, `net_account_value_usd`) as first-class domain values rather than overwriting them with synthetic formulas.
+  5. **Slot Drift Defense**: Evaluate queries using coherent `LedgerInstant` (slot and block time). Reject multi-account observations exceeding `max_slot_drift = 50` slots with typed `InconsistentSlotError` / 409 Conflict.
+  6. **Explicit Provenance**: Label Kamino data strictly as `Mainnet Observed` or `Surfpool Simulated`. Never label test fixtures as `Mainnet Observed`.
+- **Consequences**:
+  - *Positive*: Complete dependency isolation without compromising root Anchor 1.2.2 or `@solana/web3.js@1.99.0` lock.
+  - *Positive*: Zero risk of custodial key exposure or inadvertent transaction execution.
+  - *Positive*: High-fidelity multi-asset position monitoring reflecting authentic on-chain Kamino state.
+  - *Positive*: Full deterministic testability offline via in-memory mock transports and unit test fixtures.
+
