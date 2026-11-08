@@ -1,0 +1,44 @@
+# Build outputs
+target/
+dist/
+out/
+.next/
+build/
+
+# Node / pnpm
+node_modules/
+.pnpm-store/
+.pnpm-debug.log*
+
+# Solana & Anchor
+.anchor/
+.surfpool/
+test-ledger/
+*.so
+
+# Secrets, Keys, Environment
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id.json
+*keypair*.json
+
+# Rust & Cargo
+**/*.rs.bk
+Cargo.lock.orig
+
+# IDE & OS
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

@@ -1,0 +1,20 @@
+[toolchain]
+anchor_version = "1.2.2"
+solana_version = "2.1.0"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+lend_rescue = "LendRescue111111111111111111111111111111111"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[scripts]
+test = "echo 'Phase 0: Anchor program and tests will be implemented in Phase 1 & 2'"
