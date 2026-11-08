@@ -1,17 +1,18 @@
-import type { ProvenanceInfo } from "@/types/api";
 import { ProvenanceBadge } from "./provenance-badge";
 
 interface ConsoleHeaderProps {
   title: string;
   subtitle?: string;
-  provenance?: ProvenanceInfo;
+  provenanceLabel?: string;
+  provenanceTimestamp?: number;
   actions?: React.ReactNode;
 }
 
 export function ConsoleHeader({
   title,
   subtitle,
-  provenance,
+  provenanceLabel,
+  provenanceTimestamp,
   actions,
 }: ConsoleHeaderProps) {
   return (
@@ -27,12 +28,14 @@ export function ConsoleHeader({
         )}
       </div>
       <div className="flex items-center gap-3">
-        {provenance && (
-          <ProvenanceBadge provenance={provenance} />
+        {provenanceLabel && (
+          <ProvenanceBadge
+            label={provenanceLabel}
+            timestamp={provenanceTimestamp}
+          />
         )}
         {actions}
       </div>
     </div>
   );
 }
-

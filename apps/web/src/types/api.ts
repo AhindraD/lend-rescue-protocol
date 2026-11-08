@@ -1,194 +1,243 @@
-// ─── Shared & Provenance ──────────────────────────────────────────────────────
+// ─── Token & Pricing Types ───────────────────────────────────────────────────
 
-export type Provenance =
-  | "Live"
-  | "SurfpoolSimulated"
-  | "MockOracle"
-  | "Cached"
-  | "Demo";
+export interface TokenAmountDto {
+  raw: string;
+  decimals: number;
+  symbol?: string;
+  formatted: string;
+}
 
-export interface ProvenanceInfo {
-  source: Provenance;
-  timestamp_ms: number;
-  staleness_ms?: number;
+export interface PriceDto {
+  mantissa: string;
+  exponent: number;
+  confidence: string;
+  formatted: string;
+  timestamp: number;
+  slot: number;
 }
 
 // ─── Health & Readiness ───────────────────────────────────────────────────────
 
 export interface HealthResponse {
-  status: "ok" | "degraded" | "error";
+  status: string;
+  service: string;
   version: string;
-  uptime_secs: number;
 }
 
 export interface ReadyResponse {
   ready: boolean;
-  checks: Record<string, boolean>;
+  database: string;
+  demoMode: boolean;
+  timestamp: number;
 }
 
 // ─── Markets ──────────────────────────────────────────────────────────────────
 
-export interface MarketReserve {
-  asset_id: string;
-  symbol: string;
-  mint: string;
-  deposit_limit_usd?: string;
-  borrow_limit_usd?: string;
-  liquidation_threshold_bps: number;
-  loan_to_value_bps: number;
+export interface MarketResponse {
+  marketId: number;
+  authority: string;
+  collateralAsset: string;
+  collateralDecimals: number;
+  debtAsset: string;
+  debtDecimals: number;
+  liquidationThresholdBps: number;
+  demoSwapFeeBps: number;
+  isPaused: boolean;
+  dataSource: string;
+  observedAt: number;
 }
 
-export interface Market {
-  id: string;
-  name: string;
-  protocol: string;
-  tvl_usd: string;
-  reserve_count: number;
-  reserves?: MarketReserve[];
-  provenance: ProvenanceInfo;
+// ─── Position Types ───────────────────────────────────────────────────────────
+
+export interface PositionDepositDto {
+  reserveAddress: string;
+  mintAddress: string;
+  assetSymbol: string;
+  decimals: number;
+  amount: TokenAmountDto;
+  marketValueUsd: string;
 }
 
-export interface ListMarketsResponse {
-  markets: Market[];
-  provenance: ProvenanceInfo;
+export interface PositionBorrowDto {
+  reserveAddress: string;
+  mintAddress: string;
+  assetSymbol: string;
+  decimals: number;
+  amount: TokenAmountDto;
+  marketValueUsd: string;
 }
 
-// ─── Positions ────────────────────────────────────────────────────────────────
-
-export type RiskLevel = "Safe" | "Warning" | "Critical" | "Unknown";
-
-export interface TokenAmount {
-  mint: string;
-  symbol: string;
-  amount_ui: string;
-  value_usd: string;
+export interface ProtocolRiskMetricsDto {
+  borrowLimitUsd: string;
+  liquidationThresholdUsd: string;
+  totalDepositUsd: string;
+  totalBorrowUsd: string;
+  loanToValueBps: number;
+  liquidationThresholdBps: number;
+  borrowUtilizationBps: number;
+  netAccountValueUsd: string;
+  isProtocolReported: boolean;
 }
 
-export interface Position {
+export interface PositionResponse {
   id: string;
   owner: string;
-  market_id: string;
-  collateral: TokenAmount[];
-  debt: TokenAmount[];
-  health_factor: string | null;
-  liquidation_threshold: string | null;
-  risk_level: RiskLevel;
-  provenance: ProvenanceInfo;
-  multi_asset: boolean;
-  unsupported_reason?: string;
+  collateralAsset: string;
+  collateralAmount: TokenAmountDto;
+  debtAsset: string;
+  debtAmount: TokenAmountDto;
+  liquidationThresholdBps: number;
+  protocolSource: string;
+  provenanceLabel: string;
+  marketId?: number;
+  collateralPositions?: PositionDepositDto[];
+  debtPositions?: PositionBorrowDto[];
+  protocolMetrics?: ProtocolRiskMetricsDto;
+  marketAddress?: string;
+  observationSlot?: number;
 }
 
-export interface ListPositionsResponse {
-  positions: Position[];
-  total: number;
-  provenance: ProvenanceInfo;
+export interface PositionFilterQuery {
+  owner?: string;
+  protocol?: string;
+  network?: string;
+  riskBand?: string;
 }
 
 // ─── Risk Assessment ──────────────────────────────────────────────────────────
 
-export interface RiskAssessment {
-  position_id: string;
-  health_factor: string | null;
-  liquidation_price: string | null;
-  risk_level: RiskLevel;
-  risk_score: number;
-  time_to_liquidation_estimate?: string;
-  provenance: ProvenanceInfo;
-  unsupported: boolean;
-  unsupported_reason?: string;
+export type RiskBand = "Safe" | "Moderate" | "Warning" | "Critical" | "Unknown";
+
+export interface RiskAssessmentResponse {
+  positionId: string;
+  healthFactor: string | null;
+  healthFactorScaled: number | null;
+  riskBand: string;
+  riskBandLabel: string;
+  collateralValueFormatted: string;
+  collateralValueRaw: string;
+  debtValueFormatted: string;
+  debtValueRaw: string;
+  borrowCapacityFormatted: string;
+  borrowCapacityRaw: string;
+  liquidationPrice: PriceDto | null;
+  distanceToLiquidationBps: number | null;
+  dataProvenance: string;
+  evaluatedAt: number;
+  protocolMetrics?: ProtocolRiskMetricsDto;
 }
 
-// ─── Oracle Prices ────────────────────────────────────────────────────────────
+// ─── Recovery & Plan Types ────────────────────────────────────────────────────
 
-export interface OraclePrice {
-  asset_id: string;
-  symbol: string;
-  price_usd: string;
-  confidence: string;
-  exponent: number;
-  publish_time_ms: number;
-  feed_account?: string;
-  provenance: ProvenanceInfo;
+export interface ScoreBreakdownDto {
+  capitalEfficiency: number;
+  safetyBuffer: number;
+  feePenalty: number;
+  slippagePenalty: number;
+  totalScore: number;
 }
 
-// ─── Recovery & Strategy ──────────────────────────────────────────────────────
-
-export type RecoveryActionKind =
-  | "RepayDebt"
-  | "AddCollateral"
-  | "SwapCollateral"
-  | "PartialClose";
-
-export interface RecoveryAction {
-  kind: RecoveryActionKind;
-  description: string;
-  token_in?: TokenAmount;
-  token_out?: TokenAmount;
-  indicative_jupiter_quote?: JupiterQuoteSummary;
+export interface SwapRouteStepDto {
+  ammKey?: string;
+  label?: string;
+  inputMint: string;
+  outputMint: string;
+  inAmount: string;
+  outAmount: string;
+  feeAmount: string;
+  feeMint?: string;
+  percent: number;
 }
 
-export interface JupiterQuoteSummary {
-  input_mint: string;
-  output_mint: string;
-  in_amount: string;
-  out_amount: string;
-  price_impact_pct: string;
-  route_plan: string[];
-  note: "Indicative Jupiter quote";
+export interface SwapQuoteDto {
+  provider: string;
+  inputMint: string;
+  outputMint: string;
+  inAmount: TokenAmountDto;
+  expectedOutAmount: TokenAmountDto;
+  planningMinOutAmount: TokenAmountDto;
+  feeBps: number;
+  feeMint?: string;
+  platformFeeBps?: number;
+  platformFeeAmount?: string;
+  router: string;
+  mode: string;
+  priceImpactPct?: string;
+  routePlan: SwapRouteStepDto[];
+  observedAt: number;
+  validUntil: number;
+  isIndicative: boolean;
+  isValid: boolean;
 }
 
-export interface RecoveryCandidate {
-  rank: number;
-  strategy_id: string;
-  label: string;
-  description: string;
-  estimated_health_factor_after: string | null;
-  actions: RecoveryAction[];
-  feasibility_score: number;
-  provenance: ProvenanceInfo;
+export interface RecoveryPlanDto {
+  action: string;
+  actionLabel: string;
+  inputAmount: TokenAmountDto;
+  expectedOutputAmount?: TokenAmountDto;
+  minOutputAmount?: TokenAmountDto;
+  debtRepaid: TokenAmountDto;
+  collateralSpent: TokenAmountDto;
+  collateralAdded: TokenAmountDto;
+  expectedFeeFormatted: string;
+  expectedFeeRaw: string;
+  estimatedSlippageBps: number;
+  postHealthFactor: string;
+  postHealthFactorScaled: number;
+  safetyBufferBps: number;
+  isFeasible: boolean;
+  rejectionReason?: string;
+  totalCostFormatted: string;
+  totalCostRaw: string;
+  score: number;
+  scoreBreakdown: ScoreBreakdownDto;
+  swapQuote?: SwapQuoteDto;
+}
+
+export interface RecoveryRecommendationResponse {
+  recoveryId: string;
+  positionId: string;
+  status: string;
+  preHealthFactor: string;
+  targetHealthFactor: string;
+  recommendedPlan: RecoveryPlanDto | null;
+  alternativePlans: RecoveryPlanDto[];
+  disclaimer: string;
+  createdAt: number;
+  expiresAt: number;
 }
 
 export interface RecoveryQuoteRequest {
-  position_id: string;
-  target_health_factor?: string;
+  positionId?: string;
+  action?: string;
+  targetHealthFactor?: string;
+  maxDebtRepayment?: string;
+  maxCollateralSpend?: string;
+  maxSlippageBps?: number;
+  inputMint?: string;
+  outputMint?: string;
+  amount?: string;
+  refresh?: boolean;
 }
 
-export interface RecoveryQuoteResponse {
-  recovery_id: string;
-  position_id: string;
-  candidates: RecoveryCandidate[];
-  computed_at_ms: number;
-  provenance: ProvenanceInfo;
-  unsupported: boolean;
-  unsupported_reason?: string;
-}
-
-export interface OptimizeRecoveryRequest {
-  position_id: string;
-  target_health_factor?: string;
-  constraints?: {
-    max_slippage_bps?: number;
-    prefer_no_swap?: boolean;
-  };
-}
-
-export interface RecoveryRecommendation {
-  recovery_id: string;
-  position_id: string;
-  recommended: RecoveryCandidate | null;
-  all_candidates: RecoveryCandidate[];
-  computed_at_ms: number;
-  provenance: ProvenanceInfo;
-  unsupported: boolean;
-  unsupported_reason?: string;
+export interface RecoveryOptimizeRequest {
+  positionId: string;
+  targetHealthFactor?: string;
+  allowedActions?: string[];
+  maxDebtRepayment?: string;
+  maxCollateralSpend?: string;
+  maxSlippageBps?: number;
+  objective?: string;
 }
 
 // ─── Error Envelope ───────────────────────────────────────────────────────────
 
-export interface ApiError {
-  error: string;
+export interface ErrorPayload {
   code: string;
-  request_id?: string;
-  details?: Record<string, unknown>;
+  message: string;
+  requestId?: string;
 }
 
+export interface ErrorResponse {
+  error: ErrorPayload;
+}

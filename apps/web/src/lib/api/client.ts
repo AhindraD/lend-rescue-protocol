@@ -2,16 +2,16 @@ import {
   API_ENDPOINTS,
   type HealthResponse,
   type ReadyResponse,
-  type ListMarketsResponse,
-  type ListPositionsResponse,
-  type Position,
-  type RiskAssessment,
-  type OraclePrice,
+  type MarketResponse,
+  type PositionResponse,
+  type PositionFilterQuery,
+  type RiskAssessmentResponse,
+  type PriceDto,
   type RecoveryQuoteRequest,
-  type RecoveryQuoteResponse,
-  type OptimizeRecoveryRequest,
-  type RecoveryRecommendation,
-  type ApiError,
+  type RecoveryPlanDto,
+  type RecoveryOptimizeRequest,
+  type RecoveryRecommendationResponse,
+  type ErrorResponse,
 } from "./contracts";
 
 const API_BASE =
@@ -21,10 +21,11 @@ const API_BASE =
 export class ApiResponseError extends Error {
   constructor(
     public readonly status: number,
-    public readonly body: ApiError,
+    public readonly code: string,
+    public readonly message: string,
     public readonly requestId?: string
   ) {
-    super(body.error || `HTTP ${status}`);
+    super(message || `HTTP ${status}`);
     this.name = "ApiResponseError";
   }
 }
@@ -41,17 +42,22 @@ async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
   });
 
   if (!res.ok) {
-    let body: ApiError;
+    let code = `HTTP_${res.status}`;
+    let message = res.statusText || `Request failed with status ${res.status}`;
+    let requestId = res.headers.get("x-request-id") ?? undefined;
+
     try {
-      body = (await res.json()) as ApiError;
+      const errJson = (await res.json()) as ErrorResponse;
+      if (errJson && errJson.error) {
+        code = errJson.error.code || code;
+        message = errJson.error.message || message;
+        requestId = errJson.error.requestId || requestId;
+      }
     } catch {
-      body = {
-        error: res.statusText || `Request failed with status ${res.status}`,
-        code: `HTTP_${res.status}`,
-      };
+      // Body not JSON
     }
-    const requestId = res.headers.get("x-request-id") ?? body.request_id ?? undefined;
-    throw new ApiResponseError(res.status, body, requestId);
+
+    throw new ApiResponseError(res.status, code, message, requestId);
   }
 
   return res.json() as Promise<T>;
@@ -67,45 +73,59 @@ export const getReady = (): Promise<ReadyResponse> =>
 
 // ─── Markets ──────────────────────────────────────────────────────────────────
 
-export const listMarkets = (): Promise<ListMarketsResponse> =>
-  apiFetch<ListMarketsResponse>(API_ENDPOINTS.MARKETS);
+export const listMarkets = (): Promise<MarketResponse[]> =>
+  apiFetch<MarketResponse[]>(API_ENDPOINTS.MARKETS);
 
 // ─── Positions ────────────────────────────────────────────────────────────────
 
-export const listPositions = (): Promise<ListPositionsResponse> =>
-  apiFetch<ListPositionsResponse>(API_ENDPOINTS.POSITIONS);
+export const listPositions = (
+  query?: PositionFilterQuery
+): Promise<PositionResponse[]> => {
+  const params = new URLSearchParams();
+  if (query?.owner) params.append("owner", query.owner);
+  if (query?.protocol) params.append("protocol", query.protocol);
+  if (query?.network) params.append("network", query.network);
+  if (query?.riskBand) params.append("riskBand", query.riskBand);
 
-export const getPosition = (positionId: string): Promise<Position> =>
-  apiFetch<Position>(API_ENDPOINTS.POSITION_BY_ID(positionId));
+  const qs = params.toString();
+  const path = qs ? `${API_ENDPOINTS.POSITIONS}?${qs}` : API_ENDPOINTS.POSITIONS;
+  return apiFetch<PositionResponse[]>(path);
+};
 
-export const getPositionRisk = (positionId: string): Promise<RiskAssessment> =>
-  apiFetch<RiskAssessment>(API_ENDPOINTS.POSITION_RISK(positionId));
+export const getPosition = (positionId: string): Promise<PositionResponse> =>
+  apiFetch<PositionResponse>(API_ENDPOINTS.POSITION_BY_ID(positionId));
+
+export const getPositionRisk = (
+  positionId: string
+): Promise<RiskAssessmentResponse> =>
+  apiFetch<RiskAssessmentResponse>(API_ENDPOINTS.POSITION_RISK(positionId));
 
 // ─── Oracles ──────────────────────────────────────────────────────────────────
 
-export const getOraclePrice = (assetId: string): Promise<OraclePrice> =>
-  apiFetch<OraclePrice>(API_ENDPOINTS.ORACLE_PRICE(assetId));
+export const getOraclePrice = (assetId: string): Promise<PriceDto> =>
+  apiFetch<PriceDto>(API_ENDPOINTS.ORACLE_PRICE(assetId));
 
 // ─── Recovery Strategy ────────────────────────────────────────────────────────
 
 export const quoteRecovery = (
   body: RecoveryQuoteRequest
-): Promise<RecoveryQuoteResponse> =>
-  apiFetch<RecoveryQuoteResponse>(API_ENDPOINTS.RECOVERY_QUOTE, {
+): Promise<RecoveryPlanDto> =>
+  apiFetch<RecoveryPlanDto>(API_ENDPOINTS.RECOVERY_QUOTE, {
     method: "POST",
     body: JSON.stringify(body),
   });
 
 export const optimizeRecovery = (
-  body: OptimizeRecoveryRequest
-): Promise<RecoveryRecommendation> =>
-  apiFetch<RecoveryRecommendation>(API_ENDPOINTS.RECOVERY_OPTIMIZE, {
+  body: RecoveryOptimizeRequest
+): Promise<RecoveryRecommendationResponse> =>
+  apiFetch<RecoveryRecommendationResponse>(API_ENDPOINTS.RECOVERY_OPTIMIZE, {
     method: "POST",
     body: JSON.stringify(body),
   });
 
 export const getRecoveryRecommendation = (
   recoveryId: string
-): Promise<RecoveryRecommendation> =>
-  apiFetch<RecoveryRecommendation>(API_ENDPOINTS.RECOVERY_BY_ID(recoveryId));
-
+): Promise<RecoveryRecommendationResponse> =>
+  apiFetch<RecoveryRecommendationResponse>(
+    API_ENDPOINTS.RECOVERY_BY_ID(recoveryId)
+  );
