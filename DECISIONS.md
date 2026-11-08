@@ -14,6 +14,7 @@ This document records the architectural and design decisions made for LendRescue
 - [ADR-006: Environment Isolation (Mainnet Read-Only, Devnet Executable, Surfpool Simulation)](#adr-006-environment-isolation-mainnet-read-only-devnet-executable-surfpool-simulation)
 - [ADR-007: Lightweight, Isolated, Lazy-Loaded Three.js Landing Hero](#adr-007-lightweight-isolated-lazy-loaded-threejs-landing-hero)
 - [ADR-008: Adoption of Anthropic `frontend-design` Agent Skill](#adr-008-adoption-of-anthropic-frontend-design-agent-skill)
+- [ADR-009: Pinned Toolchain Alignment (Agave 4.1.2, Platform Tools v1.57) and SBPF Stack Optimization](#adr-009-pinned-toolchain-alignment-agave-412-platform-tools-v157-and-sbpf-stack-optimization)
 
 ---
 
@@ -127,4 +128,20 @@ This document records the architectural and design decisions made for LendRescue
 - **Consequences**:
   - *Positive*: Unique, professional, high-trust fintech feel appropriate for risk management software.
   - *Positive*: Consistent design tokens codified in `TOOLCHAIN.md` and `apps/web/README.md`.
+
+---
+
+### ADR-009: Pinned Toolchain Alignment (Agave 4.1.2, Platform Tools v1.57) and SBPF Stack Optimization
+
+- **Status**: Accepted
+- **Context**: Anchor CLI 1.2.2 defaults to SBPF architecture `v3` and platform tools `v1.57`, requiring an Agave/Solana CLI line supporting modern toolchain resolution (`4.1.2`). Additionally, complex recovery instructions with large account structs can exceed the strict 4096-byte Solana function stack frame.
+- **Decision**:
+  1. Pin toolchain dependencies strictly to Anchor CLI 1.2.2, Agave CLI 4.1.2, and Platform Tools v1.57 (`rustc 1.95.0`).
+  2. Map `[toolchain] solana_version = "4.1.2"` in `Anchor.toml`.
+  3. Box large accounts (`Box<Account<'info, T>>`) in `ExecuteRecovery` to keep `try_accounts` frame under 4096 bytes.
+  4. Separate execution branches into `#[inline(never)]` helper functions to prevent stack frame exhaustion during on-chain execution.
+- **Consequences**:
+  - *Positive*: Reliable, deterministic Anchor compilation generating production-ready SBF bytecode (`target/deploy/lend_rescue.so`) and IDL (`target/idl/lend_rescue.json`).
+  - *Positive*: Zero stack overflow risk during runtime execution on Solana test-validator or Devnet.
+  - *Positive*: Strictly adheres to pinned project toolchain invariants.
 

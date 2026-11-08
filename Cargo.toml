@@ -1,6 +1,8 @@
 [workspace]
 resolver = "2"
-members = []
+members = [
+    "programs/lend_rescue"
+]
 
 [workspace.package]
 version = "0.1.0"
@@ -10,4 +12,7 @@ authors = ["LendRescue Contributors"]
 repository = "https://github.com/AhindraD/lend-rescue-protocol"
 homepage = "https://github.com/AhindraD/lend-rescue-protocol"
 readme = "README.md"
+
+[profile.release]
+overflow-checks = true
 

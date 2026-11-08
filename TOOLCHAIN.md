@@ -21,7 +21,7 @@ Every component in the LendRescue mono-repo is pinned to explicit versions verif
 | **Anchor CLI** | `1.2.2` | AVM (`avm install 1.2.2`) | Solana smart contract framework |
 | **Anchor Crates** | `1.2.2` | crates.io (`anchor-lang`, `anchor-spl`) | On-chain Anchor dependencies |
 | **Anchor TS Client** | `1.2.2` | npm (`@anchor-lang/core`) | Anchor TypeScript integration client |
-| **Solana / Agave CLI**| `2.1.0` | Agave client release | Solana CLI, keygen, test-validator |
+| **Solana / Agave CLI**| `4.1.2` | Agave client release | Solana CLI, keygen, test-validator |
 | **Platform Tools** | `1.57` | Solana SBPF toolchain | BPF/SBPF compilation tools |
 | **SBPF Architecture**| `v3` | Solana target specification | SBPF v3 instruction format |
 | **Surfpool** | `1.7.0` | `/home/kibi/.local/bin/surfpool` | Local Mainnet fork & instruction simulation |
