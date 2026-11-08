@@ -82,7 +82,7 @@ pub struct RecoveryCandidate {
     pub safety_buffer_bps: i64,
     pub is_feasible: bool,
     pub rejection_reason: Option<String>,
+    pub total_cost_quote: u64,
     pub score: u32,
     pub score_breakdown: ScoreBreakdown,
 }
-

@@ -15,6 +15,7 @@ This document records the architectural and design decisions made for LendRescue
 - [ADR-007: Lightweight, Isolated, Lazy-Loaded Three.js Landing Hero](#adr-007-lightweight-isolated-lazy-loaded-threejs-landing-hero)
 - [ADR-008: Adoption of Anthropic `frontend-design` Agent Skill](#adr-008-adoption-of-anthropic-frontend-design-agent-skill)
 - [ADR-009: Pinned Toolchain Alignment (Agave 4.1.2, Platform Tools v1.57) and SBPF Stack Optimization](#adr-009-pinned-toolchain-alignment-agave-412-platform-tools-v157-and-sbpf-stack-optimization)
+- [ADR-010: Axum REST API Architecture, Provider Abstraction, and Least-Cost Ranking Invariant](#adr-010-axum-rest-api-architecture-provider-abstraction-and-least-cost-ranking-invariant)
 
 ---
 
@@ -144,4 +145,22 @@ This document records the architectural and design decisions made for LendRescue
   - *Positive*: Reliable, deterministic Anchor compilation generating production-ready SBF bytecode (`target/deploy/lend_rescue.so`) and IDL (`target/idl/lend_rescue.json`).
   - *Positive*: Zero stack overflow risk during runtime execution on Solana test-validator or Devnet.
   - *Positive*: Strictly adheres to pinned project toolchain invariants.
+
+---
+
+### ADR-010: Axum REST API Architecture, Provider Abstraction, and Least-Cost Ranking Invariant
+
+- **Status**: Accepted
+- **Context**: The backend API (`apps/api`) serves as the orchestration layer between web clients, external oracles/lending markets, and the deterministic domain engines. It must maintain zero-trust boundaries, support offline development and testing, guarantee numerical safety without floating-point hazards, and enforce a least-cost recovery ranking objective.
+- **Decision**:
+  1. **Framework & Server**: Implemented with Axum 0.8.9 and Tokio 1.51.4 under `/api/v1` routes with CORS, body limit (2MB), request timeout (30s), and `x-request-id` tracing middleware.
+  2. **Zero Financial Math Reimplementation**: API handlers strictly delegate position risk calculation to `crates/risk-engine` and candidate generation/ranking to `crates/recovery-engine`.
+  3. **Provider Abstraction**: Defined `MarketProvider`, `PositionProvider`, `OracleProvider` using dyn-compatible `BoxFuture`, coupled with a reproducible `DemoProvider` providing deterministic snapshots across four health stages (Healthy, Warning, Critical, Liquidatable).
+  4. **Least-Cost Ranking Objective**: Upgraded recovery optimizer and ranking to sort feasible candidates by lowest `total_cost_quote` first, breaking ties by highest post-HF, lowest slippage, and deterministic action order. Direct debt repayment ranks ahead of swap-and-repay when total capital cost is lower.
+  5. **Database Persistence with In-Memory Fallback**: Provided PostgreSQL 17 migrations for `position_snapshots`, `oracle_observations`, and `recovery_recommendations` with dynamic SQLx parameterization (`query(...)` and `.bind(...)`) ensuring offline compilation, falling back to thread-safe in-memory stores when `DATABASE_URL` is unset or PostgreSQL is offline.
+  6. **Numerical Precision**: Prohibit `f32`/`f64`. Large token amounts and prices are serialized as decimal strings (`"raw": "1000000000"`).
+- **Consequences**:
+  - *Positive*: Full testability offline in sandbox without requiring an external PostgreSQL instance.
+  - *Positive*: Zero float rounding errors across the network boundary.
+  - *Positive*: Directly satisfies least-cost economic optimality for borrowers.
 

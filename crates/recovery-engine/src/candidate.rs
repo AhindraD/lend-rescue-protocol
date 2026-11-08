@@ -30,9 +30,10 @@ pub struct RecoveryProposal {
     pub is_feasible: bool,
     /// Detailed reason if not feasible
     pub rejection_reason: Option<String>,
+    /// Estimated total cost of recovery in quote currency (e.g. 6 decimals micro-USD)
+    pub total_cost_quote: u64,
     /// Total composite optimization score
     pub score: u32,
     /// Breakdown of individual scoring terms
     pub score_breakdown: ScoreBreakdown,
 }
-

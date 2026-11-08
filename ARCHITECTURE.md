@@ -111,11 +111,14 @@ The Anchor smart contract treats the backend API as untrusted:
 - Clearly surfaces provenance labels on every screen: `Mainnet Observed`, `Quote Only`, `Surfpool Simulated`, `Devnet Executed`, `Demo / Synthetic`.
 
 ### 4.2 Backend API (`apps/api`)
-- Built with **Axum**, **Tokio**, and **SQLx** (PostgreSQL).
-- Ingests requests, fetches oracle data, queries lending positions, and passes normalized domain objects to the pure-Rust engine.
-- Assembles unsigned transaction payloads for wallet signing.
-- Persists historical telemetry, cached position snapshots, and execution receipts for fast dashboard loading.
-- Never serves as the authoritative source of truth for financial rules.
+- Built with **Axum 0.8.9**, **Tokio 1.51.4**, **Tower-HTTP 0.7.1**, and **SQLx 0.9.0** (PostgreSQL 17 baseline).
+- Versioned endpoints under `/api/v1` (`/health`, `/ready`, `/markets`, `/positions`, `/oracles`, `/recovery/quote`, `/recovery/optimize`, `/recovery/{id}`, `/openapi.json`).
+- Decoupled Provider pattern: `MarketProvider`, `PositionProvider`, `OracleProvider` using dyn-compatible futures (`BoxFuture`), implemented by `DemoProvider` with reproducible fixtures across four health states (`Healthy`, `Warning`, `Critical`, `Liquidatable`).
+- Zero Financial Math Reimplementation: API handlers strictly delegate position risk calculation to `crates/risk-engine` and candidate generation/ranking to `crates/recovery-engine`.
+- Least-Cost Ranking Invariant: Sorts feasible plans meeting target $HF$ by lowest `total_cost_quote` first, breaking ties by highest post-$HF$ and lowest slippage.
+- Dynamic Parameterized Persistence: Uses parameterized SQLx queries (`query(...)` and `.bind(...)`) ensuring 100% offline compilation without needing an active database connection. Transparent thread-safe in-memory fallback enables running offline or in demo mode without PostgreSQL.
+- Strict Numerical Precision: Prohibits `f32`/`f64`. Raw token base units and prices are serialized as decimal strings (`"raw": "1000000000"`).
+- Never serves as the authoritative source of truth for financial rules; on-chain Anchor program remains the sole enforcement layer.
 
 ### 4.3 Pure Rust Domain & Recovery Engine (`crates/*`)
 - Structured into three focused crates:

@@ -1,0 +1,32 @@
+[package]
+name = "lend-rescue-api"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+description = "Axum REST API and orchestration engine for LendRescue"
+
+[dependencies]
+domain-types = { workspace = true, features = ["std"] }
+risk-engine = { workspace = true, features = ["std"] }
+recovery-engine = { workspace = true, features = ["std"] }
+
+axum = { workspace = true, features = ["json", "tokio", "tracing"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "net", "signal", "time"] }
+tower = { workspace = true }
+tower-http = { workspace = true, features = ["cors", "trace", "timeout", "request-id", "util"] }
+sqlx = { workspace = true, features = ["postgres", "runtime-tokio", "tls-rustls", "migrate", "macros", "uuid", "json", "chrono"] }
+serde = { workspace = true, features = ["derive", "std"] }
+serde_json = { workspace = true, features = ["std"] }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
+utoipa = { workspace = true, features = ["axum_extras", "uuid", "chrono"] }
+uuid = { workspace = true, features = ["v4", "serde"] }
+chrono = { workspace = true, features = ["serde"] }
+
+[dev-dependencies]
+tower = { workspace = true, features = ["util"] }
+http-body-util = "0.1.3"

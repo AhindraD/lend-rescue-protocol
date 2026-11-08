@@ -189,6 +189,9 @@ fn propose_repay_debt(
     let (score, score_breakdown) =
         compute_score(RecoveryAction::RepayDebt, post_hf, target_hf, 0, 0);
 
+    let total_cost_quote =
+        calculate_quote_value(&debt_repaid, debt_price, DEFAULT_QUOTE_DECIMALS)? as u64;
+
     Ok(Some(RecoveryProposal {
         action: RecoveryAction::RepayDebt,
         input_amount: debt_repaid.clone(),
@@ -203,6 +206,7 @@ fn propose_repay_debt(
         safety_buffer_bps,
         is_feasible,
         rejection_reason,
+        total_cost_quote,
         score,
         score_breakdown,
     }))
@@ -326,6 +330,9 @@ fn propose_add_collateral(
     let (score, score_breakdown) =
         compute_score(RecoveryAction::AddCollateral, post_hf, target_hf, 0, 0);
 
+    let total_cost_quote =
+        calculate_quote_value(&collateral_added, collateral_price, DEFAULT_QUOTE_DECIMALS)? as u64;
+
     Ok(Some(RecoveryProposal {
         action: RecoveryAction::AddCollateral,
         input_amount: collateral_added.clone(),
@@ -340,6 +347,7 @@ fn propose_add_collateral(
         safety_buffer_bps,
         is_feasible,
         rejection_reason,
+        total_cost_quote,
         score,
         score_breakdown,
     }))
@@ -484,6 +492,10 @@ fn propose_swap_and_repay(
         slippage_bps,
     );
 
+    let col_spent_val =
+        calculate_quote_value(&collateral_spent, collateral_price, DEFAULT_QUOTE_DECIMALS)? as u64;
+    let total_cost_quote = col_spent_val.saturating_add(fee_quote);
+
     Ok(Some(RecoveryProposal {
         action: RecoveryAction::SwapCollateralAndRepay,
         input_amount,
@@ -498,6 +510,7 @@ fn propose_swap_and_repay(
         safety_buffer_bps,
         is_feasible,
         rejection_reason,
+        total_cost_quote,
         score,
         score_breakdown,
     }))
@@ -576,7 +589,7 @@ mod tests {
         assert!(swap_cand.debt_repaid.raw > 0);
         assert!(swap_cand.post_health_factor.0 >= 12_500);
 
-        // First ranked candidate should be SwapCollateralAndRepay due to high capital efficiency
-        assert_eq!(candidates[0].action, RecoveryAction::SwapCollateralAndRepay);
+        // First ranked candidate under least-cost objective should be RepayDebt ($180.00 < $181.75 < $264.70)
+        assert_eq!(candidates[0].action, RecoveryAction::RepayDebt);
     }
 }

@@ -32,6 +32,12 @@ Every component in the LendRescue mono-repo is pinned to explicit versions verif
 | **`@solana/web3.js`**| `1.99.0` | npm package (Legacy v1 line) | Compatibility bridge for `@anchor-lang/core` |
 | **`@solana/spl-token`**| `0.4.15` | npm package | SPL Token client library |
 | **Agent Skill** | `frontend-design` | GitHub: `anthropics/skills` | Design lead skill in `.agents/skills/` |
+| **Axum** | `0.8.9` | crates.io (`axum`) | Backend REST API web framework |
+| **Tokio** | `1.51.4` | crates.io (`tokio`) | Async runtime for Axum backend |
+| **Tower / Tower-HTTP**| `0.5.2` / `0.7.1` | crates.io | Middleware (CORS, trace, timeout, request-id) |
+| **SQLx** | `0.9.0` | crates.io (`sqlx`) | Async PostgreSQL 17 database driver & migrations |
+| **Utoipa** | `6.0.0` | crates.io (`utoipa`) | Compile-time OpenAPI 3.1 JSON generation |
+| **PostgreSQL** | `17` | System / Container | Database baseline for snapshots & telemetry |
 
 ---
 
@@ -99,7 +105,21 @@ To preserve stability and avoid broken peer dependency graphs:
 
 ---
 
-## 5. Dependency Pinning & Locking Rules
+## 5. Backend API & Database Toolchain
+
+The backend API (`apps/api`) runs on a pinned async Rust stack integrated with PostgreSQL 17:
+
+- **Axum Web Framework**: `0.8.9` (routing, JSON extraction, trace layer)
+- **Tokio Runtime**: `1.51.4` (multi-threaded async execution)
+- **Tower & Tower-HTTP**: `0.5.2` and `0.7.1` (CORS, 2MB body limit, 30s timeout, x-request-id middleware)
+- **SQLx Database Driver**: `0.9.0` (async PostgreSQL 17 driver with offline parameterization)
+- **PostgreSQL**: `17` baseline (schema migrations in `apps/api/migrations/`)
+- **OpenAPI Generator**: `utoipa 6.0.0` (offline compile-time OpenAPI 3.1 JSON export)
+- **Execution Invariant**: Zero-dependency offline fallback mode runs transparently without an external PostgreSQL instance when `DATABASE_URL` is omitted.
+
+---
+
+## 6. Dependency Pinning & Locking Rules
 
 1. **Exact Semver Only**:
    - `package.json` dependencies must be exact versions (e.g. `"@anchor-lang/core": "1.2.2"`, not `"^1.2.2"` or `"~1.2.2"`).
@@ -119,7 +139,7 @@ To preserve stability and avoid broken peer dependency graphs:
 
 ---
 
-## 6. Official Version and Compatibility References
+## 7. Official Version and Compatibility References
 
 - **Node.js Active LTS**: <https://nodejs.org/en/about/previous-releases>
 - **Rust Stable Releases**: <https://blog.rust-lang.org/releases/latest/>
