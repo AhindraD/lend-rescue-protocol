@@ -127,4 +127,3 @@ pub struct MarketPausedEvent {
     pub is_paused: bool,
     pub timestamp: i64,
 }
-

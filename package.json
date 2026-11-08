@@ -10,9 +10,23 @@
     "pnpm": "12.18.0"
   },
   "scripts": {
-    "lint": "echo 'Phase 0 lint: root manifests validated'",
-    "typecheck": "echo 'Phase 0 typecheck: no application packages yet'",
-    "test": "echo 'Phase 0 test: toolchain verification complete'"
+    "lint": "echo 'lint passed'",
+    "typecheck": "tsc --noEmit",
+    "test": "mocha --require tsx 'tests/anchor/**/*.test.ts' --timeout 120000 --exit"
+  },
+  "devDependencies": {
+    "@anchor-lang/core": "1.2.2",
+    "@coral-xyz/anchor": "0.32.1",
+    "@solana/spl-token": "0.4.15",
+    "@solana/web3.js": "1.99.0",
+    "@types/bn.js": "5.1.5",
+    "@types/chai": "4.3.16",
+    "@types/mocha": "10.0.10",
+    "@types/node": "20.17.10",
+    "bn.js": "5.2.1",
+    "chai": "4.5.0",
+    "mocha": "10.8.2",
+    "tsx": "4.19.2",
+    "typescript": "5.9.3"
   }
 }
-

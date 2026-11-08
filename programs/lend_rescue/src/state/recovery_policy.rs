@@ -56,4 +56,3 @@ impl RecoveryPolicy {
         (self.allowed_actions & action) != 0
     }
 }
-

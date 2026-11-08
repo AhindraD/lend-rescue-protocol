@@ -17,5 +17,5 @@ cluster = "localnet"
 wallet = "~/.config/solana/id.json"
 
 [scripts]
-test = "echo 'Phase 0: Anchor program and tests will be implemented in Phase 1 & 2'"
+test = "pnpm exec mocha --require tsx 'tests/anchor/**/*.test.ts' --timeout 120000 --exit"
 

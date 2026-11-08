@@ -44,4 +44,3 @@ pub const MAX_PERMITTED_SLIPPAGE_BPS: u16 = 1_000;
 
 /// Minimum health factor floor: cannot create position or policy below 1.0 (10,000 scaled)
 pub const MIN_SAFE_HF: u64 = 10_000;
-
