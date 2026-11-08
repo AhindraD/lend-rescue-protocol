@@ -128,3 +128,4 @@ To preserve stability and avoid broken peer dependency graphs:
 - **Agave / Solana Releases**: <https://github.com/anza-xyz/agave/releases>
 - **Surfpool Documentation**: <https://surfpool.run>
 - **Anthropic Agent Skills**: <https://github.com/anthropics/skills/tree/main/skills/frontend-design>
+

@@ -146,3 +146,4 @@ LendRescue resolves this dilemma through a three-stage pipeline:
 6. **Phase 5 (Adapters)**: Read-only Kamino adapter, Pyth/Mock oracle adapter, Jupiter quote adapter, and Surfpool simulator pass integration tests.
 7. **Phase 6 (Web Application)**: Next.js console passes typecheck, linting, tests, and production build, featuring an editorial design system and lazy 3D hero.
 8. **Phase 7 (End-to-End Demo)**: Repeatable Devnet demo executes a successful recovery, creates an on-chain `RecoveryReceipt`, and proves that an out-of-policy transaction reverts with untouched balances.
+

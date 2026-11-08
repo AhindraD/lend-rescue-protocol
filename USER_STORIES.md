@@ -185,3 +185,4 @@ This document outlines the user stories, acceptance criteria, and adversarial/ed
 | **ADV-5** | Oracle price confidence interval $> 5\%$ | Reverts with `OracleError::ConfidenceTooWide`. |
 | **ADV-6** | Swap execution slippage exceeds `max_slippage_bps` | Reverts with `RecoveryError::SlippageExceeded`. |
 | **ADV-7** | Market authority activates emergency pause | All state-changing instructions revert with `MarketError::MarketPaused`. |
+

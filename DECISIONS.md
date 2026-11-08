@@ -127,3 +127,4 @@ This document records the architectural and design decisions made for LendRescue
 - **Consequences**:
   - *Positive*: Unique, professional, high-trust fintech feel appropriate for risk management software.
   - *Positive*: Consistent design tokens codified in `TOOLCHAIN.md` and `apps/web/README.md`.
+

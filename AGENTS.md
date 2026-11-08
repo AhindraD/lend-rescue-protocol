@@ -78,3 +78,4 @@ NEXT PHASE:
 ```
 
 If a verification gate fails, set `STATUS: BLOCKED`, do not commit broken work, and explain the exact failure and required remediation.
+

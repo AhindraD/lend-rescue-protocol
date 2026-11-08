@@ -18,3 +18,4 @@ wallet = "~/.config/solana/id.json"
 
 [scripts]
 test = "echo 'Phase 0: Anchor program and tests will be implemented in Phase 1 & 2'"
+
