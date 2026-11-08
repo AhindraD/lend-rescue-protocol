@@ -56,3 +56,4 @@ export function RiskBadge({ level }: { level: RiskLevel }) {
   };
   return <Badge variant={variantMap[level] ?? "muted"}>{level}</Badge>;
 }
+

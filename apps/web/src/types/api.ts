@@ -191,3 +191,4 @@ export interface ApiError {
   request_id?: string;
   details?: Record<string, unknown>;
 }
+

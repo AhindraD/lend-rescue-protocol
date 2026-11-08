@@ -14,3 +14,4 @@ export default function ConsoleLayout({
     </div>
   );
 }
+
