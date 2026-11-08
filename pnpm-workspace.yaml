@@ -2,6 +2,12 @@ packages:
   - "apps/*"
   - "tests/*"
 
+onlyBuiltDependencies:
+  - "bigint-buffer"
+  - "bufferutil"
+  - "esbuild"
+  - "utf-8-validate"
+
 allowBuilds:
   bigint-buffer: true
   bufferutil: true

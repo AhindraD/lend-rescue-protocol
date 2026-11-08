@@ -97,3 +97,4 @@ export function assertSnapshotsEqual(
     ).to.equal(before.policyIsActive);
   }
 }
+

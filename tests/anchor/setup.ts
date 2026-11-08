@@ -35,3 +35,4 @@ export function getProgram(provider?: AnchorProvider): Program<LendRescue> {
   const p = provider || getProvider();
   return new Program<LendRescue>(idl as any, p);
 }
+
