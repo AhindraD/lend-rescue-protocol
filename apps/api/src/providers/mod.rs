@@ -5,5 +5,5 @@ pub mod position_provider;
 
 pub use demo_provider::DemoProvider;
 pub use market_provider::MarketProvider;
-pub use oracle_provider::OracleProvider;
+pub use oracle_provider::{OracleObservation, OracleProvider, OracleSource};
 pub use position_provider::PositionProvider;

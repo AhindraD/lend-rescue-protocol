@@ -33,9 +33,9 @@ pub async fn get_oracle_price_handler(
         other => AssetId::Custom(other.to_string()),
     };
 
-    let price = state
+    let observation = state
         .oracle_provider
-        .get_price(&asset_id)
+        .get_observation(&asset_id)
         .await?
         .ok_or_else(|| {
             ApiError::NotFound(format!(
@@ -45,13 +45,13 @@ pub async fn get_oracle_price_handler(
         })?;
 
     let now = Utc::now().timestamp();
-    let is_valid = validate_oracle_price(&price, now, None, None).is_ok();
+    let is_valid = validate_oracle_price(&observation.price, now, None, None).is_ok();
 
     Ok(Json(OraclePriceResponse::new(
         asset_id_str,
-        &price,
+        &observation.price,
         now,
-        is_valid,
-        "Demo / Synthetic",
+        is_valid && observation.is_valid,
+        observation.source.as_str(),
     )))
 }

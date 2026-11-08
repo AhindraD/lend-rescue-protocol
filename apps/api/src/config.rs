@@ -1,8 +1,9 @@
 use std::env;
+use std::fmt;
 use std::net::IpAddr;
 
 /// Service configuration loaded from environment variables with safe defaults.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct AppConfig {
     pub bind_host: IpAddr,
     pub bind_port: u16,
@@ -11,6 +12,46 @@ pub struct AppConfig {
     pub log_level: String,
     pub request_timeout_secs: u64,
     pub demo_mode: bool,
+
+    // Oracle & Protocol Configuration
+    pub solana_rpc_url: String,
+    pub solana_network: String,
+    pub pyth_program_id: String,
+    pub pyth_max_age_secs: i64,
+    pub pyth_max_confidence_ratio_bps: u64,
+    pub pyth_request_timeout_ms: u64,
+    pub pyth_api_key: Option<String>,
+    pub hermes_url: Option<String>,
+    pub oracle_source: String,
+}
+
+impl fmt::Debug for AppConfig {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("AppConfig")
+            .field("bind_host", &self.bind_host)
+            .field("bind_port", &self.bind_port)
+            .field("database_url", &self.database_url)
+            .field("cors_allowed_origins", &self.cors_allowed_origins)
+            .field("log_level", &self.log_level)
+            .field("request_timeout_secs", &self.request_timeout_secs)
+            .field("demo_mode", &self.demo_mode)
+            .field("solana_rpc_url", &self.solana_rpc_url)
+            .field("solana_network", &self.solana_network)
+            .field("pyth_program_id", &self.pyth_program_id)
+            .field("pyth_max_age_secs", &self.pyth_max_age_secs)
+            .field(
+                "pyth_max_confidence_ratio_bps",
+                &self.pyth_max_confidence_ratio_bps,
+            )
+            .field("pyth_request_timeout_ms", &self.pyth_request_timeout_ms)
+            .field(
+                "pyth_api_key",
+                &self.pyth_api_key.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field("hermes_url", &self.hermes_url)
+            .field("oracle_source", &self.oracle_source)
+            .finish()
+    }
 }
 
 impl AppConfig {
@@ -48,6 +89,40 @@ impl AppConfig {
             .map(|v| v.eq_ignore_ascii_case("true") || v == "1")
             .unwrap_or(true);
 
+        let solana_rpc_url =
+            env::var("SOLANA_RPC_URL").unwrap_or_else(|_| "http://127.0.0.1:8899".to_string());
+
+        let solana_network = env::var("SOLANA_NETWORK").unwrap_or_else(|_| "surfpool".to_string());
+
+        let pyth_program_id = env::var("PYTH_PROGRAM_ID")
+            .unwrap_or_else(|_| "rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ".to_string());
+
+        let pyth_max_age_secs: i64 = env::var("PYTH_MAX_AGE_SECS")
+            .unwrap_or_else(|_| "60".to_string())
+            .parse()
+            .map_err(|e| format!("Invalid PYTH_MAX_AGE_SECS: {}", e))?;
+
+        let pyth_max_confidence_ratio_bps: u64 = env::var("PYTH_MAX_CONFIDENCE_RATIO_BPS")
+            .unwrap_or_else(|_| "200".to_string())
+            .parse()
+            .map_err(|e| format!("Invalid PYTH_MAX_CONFIDENCE_RATIO_BPS: {}", e))?;
+
+        let pyth_request_timeout_ms: u64 = env::var("PYTH_REQUEST_TIMEOUT_MS")
+            .unwrap_or_else(|_| "5000".to_string())
+            .parse()
+            .map_err(|e| format!("Invalid PYTH_REQUEST_TIMEOUT_MS: {}", e))?;
+
+        let pyth_api_key = env::var("PYTH_API_KEY")
+            .ok()
+            .filter(|s| !s.trim().is_empty());
+
+        let hermes_url = env::var("HERMES_URL")
+            .ok()
+            .filter(|s| !s.trim().is_empty())
+            .or_else(|| Some("https://hermes.pyth.network".to_string()));
+
+        let oracle_source = env::var("ORACLE_SOURCE").unwrap_or_else(|_| "demo".to_string());
+
         Ok(Self {
             bind_host,
             bind_port,
@@ -56,6 +131,15 @@ impl AppConfig {
             log_level,
             request_timeout_secs,
             demo_mode,
+            solana_rpc_url,
+            solana_network,
+            pyth_program_id,
+            pyth_max_age_secs,
+            pyth_max_confidence_ratio_bps,
+            pyth_request_timeout_ms,
+            pyth_api_key,
+            hermes_url,
+            oracle_source,
         })
     }
 
@@ -69,6 +153,15 @@ impl AppConfig {
             log_level: "info".to_string(),
             request_timeout_secs: 5,
             demo_mode: true,
+            solana_rpc_url: "http://127.0.0.1:8899".to_string(),
+            solana_network: "surfpool".to_string(),
+            pyth_program_id: "rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ".to_string(),
+            pyth_max_age_secs: 60,
+            pyth_max_confidence_ratio_bps: 200,
+            pyth_request_timeout_ms: 5000,
+            pyth_api_key: None,
+            hermes_url: Some("https://hermes.pyth.network".to_string()),
+            oracle_source: "demo".to_string(),
         }
     }
 }

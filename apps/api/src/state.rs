@@ -25,7 +25,27 @@ impl AppState {
         let db_pool = DatabasePool::init(config.database_url.as_deref(), config.demo_mode).await?;
 
         let demo_provider = Arc::new(DemoProvider::new());
-        let oracle_provider: Arc<dyn OracleProvider> = demo_provider.clone();
+        let oracle_provider: Arc<dyn OracleProvider> =
+            match config.oracle_source.to_ascii_lowercase().as_str() {
+                "mock" => Arc::new(crate::adapters::MockOracleProvider::new()),
+                "pyth" => {
+                    let pyth_config = crate::adapters::PythCoreConfig::new(
+                        config.solana_rpc_url.clone(),
+                        config.solana_network.clone(),
+                    )
+                    .with_max_age_secs(config.pyth_max_age_secs)
+                    .with_max_confidence_ratio_bps(config.pyth_max_confidence_ratio_bps)
+                    .with_api_key(config.pyth_api_key.clone());
+
+                    let rpc_transport = Arc::new(crate::adapters::MockSolanaRpcTransport::new());
+                    Arc::new(crate::adapters::PythOracleProvider::new(
+                        pyth_config,
+                        rpc_transport,
+                        None,
+                    ))
+                }
+                _ => demo_provider.clone(),
+            };
 
         let snapshot_repo = SnapshotRepository::new(db_pool.clone());
         let _observation_repo = ObservationRepository::new(db_pool.clone());

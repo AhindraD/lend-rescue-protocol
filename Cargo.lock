@@ -1392,8 +1392,11 @@ name = "lend-rescue-api"
 version = "0.1.0"
 dependencies = [
  "axum",
+ "base64 0.22.1",
+ "borsh",
  "chrono",
  "domain-types",
+ "hex",
  "http-body-util",
  "recovery-engine",
  "risk-engine",

@@ -17,6 +17,7 @@ This document records the architectural and design decisions made for LendRescue
 - [ADR-009: Pinned Toolchain Alignment (Agave 4.1.2, Platform Tools v1.57) and SBPF Stack Optimization](#adr-009-pinned-toolchain-alignment-agave-412-platform-tools-v157-and-sbpf-stack-optimization)
 - [ADR-010: Axum REST API Architecture, Provider Abstraction, and Least-Cost Ranking Invariant](#adr-010-axum-rest-api-architecture-provider-abstraction-and-least-cost-ranking-invariant)
 - [ADR-011: Anchor Architecture Hardening: InitSpace Sizing, Context Method Standardization, and Explicit Authorization/Nonce Semantics](#adr-011-anchor-architecture-hardening-initspace-sizing-context-method-standardization-and-explicit-authorizationnonce-semantics)
+- [ADR-012: Pyth Core Persistent On-Chain Oracle Integration, Strict Provenance Metadata, and Zero Silent Fallback](#adr-012-pyth-core-persistent-on-chain-oracle-integration-strict-provenance-metadata-and-zero-silent-fallback)
 
 ---
 
@@ -189,4 +190,24 @@ This document records the architectural and design decisions made for LendRescue
   - *Positive*: Unambiguous replay protection and audit trail: `execution_nonce` strictly counts recoveries; `policy_revision` strictly counts config mutations.
   - *Positive*: Clean separation of concerns with idiomatic Anchor context methods.
   - *Positive*: Zero regression in pure Rust crates (`crates/domain-types`, `crates/recovery-engine`) and Axum backend API.
+
+---
+
+### ADR-012: Pyth Core Persistent On-Chain Oracle Integration, Strict Provenance Metadata, and Zero Silent Fallback
+
+- **Status**: Accepted
+- **Context**:
+  1. LendRescue requires real-world Solana market prices for risk monitoring and candidate optimization.
+  2. Pyth operates two distinct models on Solana: (a) Pyth Core persistent on-chain price update accounts (`PriceUpdateV2` managed by receiver `rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ`), and (b) Pyth Pro ephemeral transaction-carried updates. LendRescue monitors on-chain positions and queries persistent accounts without requiring user transaction payloads.
+  3. A critical security failure in DeFi oracles is silent fallback from live feeds to mock or stale data when a network query fails, which can obscure liquidations or quote inaccurate recovery plans.
+- **Decision**:
+  1. **Pyth Core Account Model**: Implement a read-only `PythOracleProvider` decoding Borsh `PriceUpdateV2` accounts as well as legacy Pyth price accounts, resolving feeds by 32-byte Pyth Feed ID.
+  2. **Zero-Trust Validation Pipeline**: Every price observation is validated for: (a) non-zero positive price mantissa, (b) confidence interval bounds ($\le 200$ bps), (c) freshness ($\le 60$s old), (d) plausible timestamp (rejecting future dates), (e) feed identity matching, and (f) account program ownership.
+  3. **Zero Silent Fallback**: If a Pyth observation fails, expires, or returns an error, the provider strictly propagates typed `PythError` / `ApiError`. It never silently substitutes mock or synthetic values.
+  4. **Strict Provenance Metadata**: Every observation explicitly carries its source tag (`Mainnet Observed`, `Surfpool Simulated`, `Devnet Executed`, or `Synthetic / Test Fixture`), ensuring frontends and services can unambiguously differentiate real telemetry from synthetic fixtures.
+  5. **Hermes Support**: Configurable server-side Bearer authentication for Hermes HTTP price updates, redacting API keys in debug and log statements.
+- **Consequences**:
+  - *Positive*: Production-ready oracle observation layer compatible with real Solana Pyth feeds.
+  - *Positive*: Fail-closed security guarantee against stale, rogue, or out-of-bounds oracle inputs.
+  - *Positive*: Full deterministic testability offline via in-memory mock transports.
 

@@ -146,6 +146,15 @@ The Anchor smart contract treats the backend API as untrusted:
 - **Stack Frame Safety**: `ExecuteRecovery` leverages `Box<Account<'info, T>>` and `#[inline(never)]` helper methods for action branches, guaranteeing execution well within the Solana runtime 4KB stack boundary.
 - Guarantees complete atomic rollback on any failure.
 
+### 4.5 Protocol & Oracle Adapters (`apps/api/src/adapters`)
+- **Pyth Core Price Provider (`PythOracleProvider`)**:
+  - Read-only persistent on-chain Pyth Core integration decoding Anchor `PriceUpdateV2` Borsh accounts under program `rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ` as well as legacy Pyth price accounts.
+  - Zero-Trust Validation: Enforces positive price mantissa, confidence interval bounds (default $\le 200$ bps), freshness bounds ($\le 60$s), plausible publication timestamp (rejecting future timestamps), and feed identity verification (`0xef0d8b...` for SOL/USD, `0xeaa020...` for USDC/USD).
+  - Explicit Provider Errors: Never falls back silently to mock oracle if Pyth validation fails. Returns typed `PythError` / `ApiError`.
+  - Authenticated Hermes Support: Configurable server-side Bearer authentication for Hermes endpoints with API key redaction in logging and debug output.
+- **Mock Oracle Provider (`MockOracleProvider`)**:
+  - Deterministic synthetic price provider with explicit provenance metadata (`OracleSource::SyntheticFixture` or `OracleSource::DevnetExecuted`). Never reports mock data as `Mainnet Observed`. Supports programmatic price shocks for testing recovery feasibility.
+
 ---
 
 ## 5. Data Flow and Provenance
