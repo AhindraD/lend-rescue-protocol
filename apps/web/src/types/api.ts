@@ -107,6 +107,7 @@ export interface PositionFilterQuery {
 // ─── Risk Assessment ──────────────────────────────────────────────────────────
 
 export type RiskBand = "Safe" | "Moderate" | "Warning" | "Critical" | "Unknown";
+export type RiskLevel = RiskBand | string;
 
 export interface RiskAssessmentResponse {
   positionId: string;

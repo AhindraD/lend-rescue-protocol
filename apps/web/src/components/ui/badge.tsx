@@ -47,13 +47,13 @@ export function Badge({
   );
 }
 
-export function RiskBadge({ level }: { level: RiskLevel }) {
-  const variantMap: Record<RiskLevel, BadgeVariant> = {
-    Safe: "safe",
-    Warning: "warning",
-    Critical: "critical",
-    Unknown: "muted",
-  };
-  return <Badge variant={variantMap[level] ?? "muted"}>{level}</Badge>;
+export function RiskBadge({ level }: { level: string }) {
+  const norm = (level || "").toLowerCase();
+  let variant: BadgeVariant = "muted";
+  if (norm.includes("safe")) variant = "safe";
+  else if (norm.includes("warning") || norm.includes("moderate")) variant = "warning";
+  else if (norm.includes("critical")) variant = "critical";
+
+  return <Badge variant={variant}>{level}</Badge>;
 }
 
