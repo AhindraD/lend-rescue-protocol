@@ -191,3 +191,4 @@ impl JupiterOrderResponseJson {
         })
     }
 }
+

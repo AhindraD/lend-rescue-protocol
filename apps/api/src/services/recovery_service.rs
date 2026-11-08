@@ -130,6 +130,82 @@ impl RecoveryService {
             ));
         }
 
+        // Standalone swap quote branch (e.g. Jupiter explicit mint pair query)
+        if let (Some(input_mint), Some(output_mint), Some(amount_str)) =
+            (&req.input_mint, &req.output_mint, &req.amount)
+        {
+            let amount_raw = amount_str
+                .parse::<u64>()
+                .map_err(|e| ApiError::BadRequest(format!("Invalid amount string: {}", e)))?;
+
+            let quote = self
+                .swap_quote_provider
+                .get_swap_quote(input_mint, output_mint, amount_raw, max_slip, refresh)
+                .await?;
+
+            let swap_dto = SwapQuoteDto::from_domain(&quote);
+            let fee_raw = (quote.expected_out_amount.raw as u128)
+                .checked_mul(quote.fee_bps as u128)
+                .unwrap_or(0)
+                / 10_000;
+            let fee_u64 = fee_raw as u64;
+
+            return Ok(RecoveryPlanDto {
+                action: "SwapQuote".to_string(),
+                action_label: "Indicative Swap Quote".to_string(),
+                input_amount: TokenAmountDto::from_domain(&quote.in_amount),
+                expected_output_amount: Some(TokenAmountDto::from_domain(
+                    &quote.expected_out_amount,
+                )),
+                min_output_amount: Some(TokenAmountDto::from_domain(
+                    &quote.planning_min_out_amount,
+                )),
+                debt_repaid: TokenAmountDto::from_domain(&quote.expected_out_amount),
+                collateral_spent: TokenAmountDto::from_domain(&quote.in_amount),
+                collateral_added: TokenAmountDto::zero(quote.in_amount.decimals),
+                expected_fee_formatted: format!("{}.{:06}", fee_u64 / 1_000_000, fee_u64 % 1_000_000),
+                expected_fee_raw: fee_u64.to_string(),
+                estimated_slippage_bps: max_slip,
+                post_health_factor: "1.0000".to_string(),
+                post_health_factor_scaled: 10000,
+                safety_buffer_bps: 0,
+                is_feasible: true,
+                rejection_reason: None,
+                total_cost_formatted: format!("{}.{:06}", fee_u64 / 1_000_000, fee_u64 % 1_000_000),
+                total_cost_raw: fee_u64.to_string(),
+                score: 100,
+                score_breakdown: ScoreBreakdownDto {
+                    capital_efficiency: 100,
+                    safety_buffer: 0,
+                    fee_penalty: 0,
+                    slippage_penalty: 0,
+                    total_score: 100,
+                },
+                swap_quote: Some(swap_dto),
+            });
+        }
+
+        let pos_id = req.position_id.as_deref().ok_or_else(|| {
+            ApiError::BadRequest(
+                "Either positionId or (inputMint, outputMint, amount) must be provided"
+                    .to_string(),
+            )
+        })?;
+
+        let position = self.position_service.get_position(pos_id).await?;
+
+        // Multi-asset Kamino safety guard:
+        // Do not calculate synthetic quotes for KaminoMainnet or multi-asset obligations
+        if position.protocol_source == ProtocolSource::KaminoMainnet
+            || position.collateral_positions.len() > 1
+            || position.debt_positions.len() > 1
+        {
+            return Err(ApiError::UnprocessableEntity(
+                "Recovery quote is unsupported for multi-asset Kamino positions until multi-leg recovery math is implemented"
+                    .to_string(),
+            ));
+        }
+
         let col_price = self
             .oracle_provider
             .get_price(&position.collateral_asset)
