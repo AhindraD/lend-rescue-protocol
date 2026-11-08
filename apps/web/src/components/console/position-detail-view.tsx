@@ -308,3 +308,4 @@ export function PositionDetailView({ positionId }: PositionDetailViewProps) {
     </div>
   );
 }
+

@@ -556,3 +556,4 @@ export function RecoveryLabView() {
     </div>
   );
 }
+

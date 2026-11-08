@@ -17,3 +17,4 @@ export default async function PositionDetailPage({ params }: PageProps) {
   const { id } = await params;
   return <PositionDetailView positionId={id} />;
 }
+
