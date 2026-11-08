@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: #07090d;
+  --color-surface-1: #0c1118;
+  --color-surface-2: #111923;
+  --color-surface-3: #17212d;
+  --color-accent: #72e5d0;
+  --color-risk-safe: #57d6a0;
+  --color-risk-warning: #e9b65e;
+  --color-risk-critical: #f07878;
+  --color-text-primary: #e8edf5;
+  --color-text-secondary: #8b9ab0;
+  --color-text-muted: #4a5668;
+  --color-border: #1e2d3d;
+
+  --font-sans: var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+:root {
+  --background: #07090d;
+  --surface-1: #0c1118;
+  --surface-2: #111923;
+  --surface-3: #17212d;
+  --accent: #72e5d0;
+  --risk-safe: #57d6a0;
+  --risk-warning: #e9b65e;
+  --risk-critical: #f07878;
+  --text-primary: #e8edf5;
+  --text-secondary: #8b9ab0;
+  --text-muted: #4a5668;
+  --border: #1e2d3d;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--surface-1);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
