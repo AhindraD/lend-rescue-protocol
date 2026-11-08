@@ -473,3 +473,4 @@ export function DashboardView() {
     </div>
   );
 }
+
