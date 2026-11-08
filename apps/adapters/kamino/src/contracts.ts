@@ -79,3 +79,4 @@ export interface KaminoErrorResponse {
   code: string;
   details?: unknown;
 }
+

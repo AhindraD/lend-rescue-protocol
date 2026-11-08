@@ -17,3 +17,4 @@ export function createHealthRouter(config: AdapterConfig): Router {
 
   return router;
 }
+

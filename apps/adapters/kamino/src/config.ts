@@ -33,3 +33,4 @@ export function loadConfig(): AdapterConfig {
     cacheTtlMs: parseInt(process.env.KAMINO_CACHE_TTL_MS || "5000", 10),
   };
 }
+

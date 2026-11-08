@@ -43,3 +43,4 @@ describe("Kamino Adapter HTTP Routes", () => {
     expect(body.code).to.equal("VALIDATION_ERROR");
   });
 });
+

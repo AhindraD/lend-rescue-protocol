@@ -45,3 +45,4 @@ export class InconsistentSlotError extends AdapterError {
     super(message, 409, "SLOT_DRIFT_EXCEEDED", details);
   }
 }
+

@@ -10,3 +10,4 @@ export class ReserveService {
     return reserves.map((r) => KaminoNormalizer.normalizeReserve(r));
   }
 }
+
