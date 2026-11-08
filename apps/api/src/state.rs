@@ -29,7 +29,26 @@ impl AppState {
         let oracle_provider: Arc<dyn OracleProvider> =
             match config.oracle_source.to_ascii_lowercase().as_str() {
                 "mock" => Arc::new(crate::adapters::MockOracleProvider::new()),
-                "pyth" => {
+                "pyth" | "surfpool" => {
+                    let pyth_config = crate::adapters::PythCoreConfig::new(
+                        config.solana_rpc_url.clone(),
+                        config.solana_network.clone(),
+                    )
+                    .with_max_age_secs(config.pyth_max_age_secs)
+                    .with_max_confidence_ratio_bps(config.pyth_max_confidence_ratio_bps)
+                    .with_api_key(config.pyth_api_key.clone());
+
+                    let rpc_transport = Arc::new(crate::adapters::HttpSolanaRpcTransport::new(
+                        &config.solana_rpc_url,
+                        config.pyth_request_timeout_ms,
+                    ));
+                    Arc::new(crate::adapters::PythOracleProvider::new(
+                        pyth_config,
+                        rpc_transport,
+                        None,
+                    ))
+                }
+                "pyth_mock" => {
                     let pyth_config = crate::adapters::PythCoreConfig::new(
                         config.solana_rpc_url.clone(),
                         config.solana_network.clone(),

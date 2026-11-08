@@ -45,12 +45,31 @@ impl PythCoreConfig {
             feed_ids.insert(AssetId::SUsdc, arr);
         }
 
+        let mut feed_accounts = HashMap::new();
+        // Official Pyth Shard-0 Persistent Feed Account PDAs
+        feed_accounts.insert(
+            AssetId::Sol,
+            super::account::DEFAULT_SOL_USD_FEED_ACCOUNT.to_string(),
+        );
+        feed_accounts.insert(
+            AssetId::SSol,
+            super::account::DEFAULT_SOL_USD_FEED_ACCOUNT.to_string(),
+        );
+        feed_accounts.insert(
+            AssetId::Usdc,
+            super::account::DEFAULT_USDC_USD_FEED_ACCOUNT.to_string(),
+        );
+        feed_accounts.insert(
+            AssetId::SUsdc,
+            super::account::DEFAULT_USDC_USD_FEED_ACCOUNT.to_string(),
+        );
+
         Self {
             rpc_url: rpc_url.into(),
             network: network.into(),
             program_id: PYTH_RECEIVER_PROGRAM_ID.to_string(),
             feed_ids,
-            feed_accounts: HashMap::new(),
+            feed_accounts,
             max_observation_age_secs: 60,
             max_confidence_ratio_bps: 200, // 2.0%
             request_timeout_ms: 5000,

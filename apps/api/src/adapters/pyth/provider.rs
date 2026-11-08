@@ -2,7 +2,7 @@ use chrono::Utc;
 use domain_types::{AssetId, Price};
 use std::sync::Arc;
 
-use super::account::try_decode_pyth_account;
+use super::account::try_decode_price_feed_account;
 use super::config::PythCoreConfig;
 use super::error::PythError;
 use super::transport::{HermesTransport, SolanaRpcTransport};
@@ -97,8 +97,9 @@ impl OracleProvider for PythOracleProvider {
                     validate_account_owner(&self.config.program_id, &account.owner)
                         .map_err(ApiError::from)?;
 
-                    // 5. Decode account data (PriceUpdateV2 or Legacy)
-                    let decoded = try_decode_pyth_account(&account.data).map_err(ApiError::from)?;
+                    // 5. Decode account data (PriceFeed, PriceUpdateV2, or Legacy)
+                    let decoded =
+                        try_decode_price_feed_account(&account.data).map_err(ApiError::from)?;
 
                     // 6. Validate feed ID if present in decoded payload
                     if let Some(actual_feed) = decoded.feed_id {

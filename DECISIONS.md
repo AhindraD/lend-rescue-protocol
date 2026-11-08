@@ -273,3 +273,35 @@ This document records the architectural and design decisions made for LendRescue
   - *Positive*: Conservative financial calculations with zero floating-point imprecision.
   - *Positive*: Fail-closed protection against misleading recommendations on complex multi-asset Kamino obligations.
 
+---
+
+### ADR-015: Surfpool Mainnet Fork Simulation, Pyth Account Models, and Cross-Protocol Orchestration (Phase 5D)
+- **Status**: Accepted
+- **Context**:
+  1. Phase 5 required end-to-end integration and verification of all protocol adapters (Pyth Core, Kamino Lending, Jupiter Swap) against real Solana on-chain state without broadcasting Mainnet transactions or holding private keys.
+  2. Mainnet-forking with Surfpool (version 1.7.0) provides a local SVM sandbox (`http://127.0.0.1:8899`) that lazily fetches on-chain account state from Solana Mainnet.
+  3. Pyth operates two distinct account models on Solana: (a) Persistent Price Feed Accounts derived deterministically via PDA `[shard_id (u16 LE), feed_id]` under program `pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT` and owned by receiver `rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ`, and (b) Ephemeral Price Update Accounts (`PriceUpdateV2`) posted on-demand via Hermes. Previous documentation conflated these two models; Phase 5D requires explicit architectural separation.
+  4. Real Kamino Main Market is `7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF` (space: 4664 bytes, owned by `KLend2g3cP87fffoy8q1mQqGKjrxjC8boSyAYavgmjD`).
+  5. Multi-asset Kamino positions must remain fail-closed (returning 422 Unprocessable Entity) until multi-leg recovery math is introduced in future phases.
+- **Decision**:
+  1. **Strict Environment Separation**:
+     - `SOLANA_RPC_URL` points to the local Surfpool RPC (`http://127.0.0.1:8899`).
+     - `SOLANA_MAINNET_RPC_URL` is used exclusively by Surfpool as its upstream data source and is redacted from all logs and debug outputs.
+     - `SURFPOOL_RPC_URL` optionally overrides application RPC.
+     - `KAMINO_MARKET_ADDRESS` configures the production Kamino market (`7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF`).
+  2. **Pyth Account-Model Separation**:
+     - Added `PythAccountKind` enum (`PriceFeed`, `PriceUpdate`, `LegacyPrice`) and distinct decoding paths (`try_decode_price_feed_account` vs `try_decode_pyth_account`).
+     - Configured default persistent shard-0 feed accounts for SOL/USD (`7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE`) and USDC/USD (`Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX`).
+     - Implemented `HttpSolanaRpcTransport` to query raw account data from local Surfpool RPC via standard JSON-RPC `getAccountInfo` with base64 decoding.
+  3. **Cross-Protocol Orchestration**:
+     - End-to-end data flow: Kamino Market/Obligation retrieval $\to$ Position Normalization $\to$ Pyth Price Valuation $\to$ Risk Engine (HF calculation) $\to$ Feasibility Check $\to$ Jupiter Swap Quote $\to$ Least-Cost Ranking $\to$ Advisory Plan.
+     - Preserved non-custodial boundary: no transaction signing, building, or execution.
+     - Preserved multi-asset fail-closed safety guard (HTTP 422 Unprocessable Entity).
+  4. **Two-Tier Test Harness**:
+     - Deterministic offline tests (no live network dependencies) for CI.
+     - Live Surfpool Mainnet-fork tests (`scripts/verify-phase-5d.sh --live`) verifying real account reads for Pyth and Kamino against local fork.
+- **Consequences**:
+  - *Positive*: Full protocol integration verified against real Solana account state without Mainnet transaction risks.
+  - *Positive*: Rigorous separation between persistent feed accounts and ephemeral update accounts.
+  - *Positive*: Verified least-cost recovery ranking with zero floating-point math.
+

@@ -170,3 +170,32 @@ The backend API (`apps/api`) runs on a pinned async Rust stack integrated with P
 - **Surfpool Documentation**: <https://surfpool.run>
 - **Anthropic Agent Skills**: <https://github.com/anthropics/skills/tree/main/skills/frontend-design>
 
+---
+
+## 8. Surfpool Mainnet Fork Verification (Phase 5D)
+
+### 8.1 Installed Version & Configuration
+- **Surfpool Binary**: `surfpool 1.7.0` (`/home/kibi/.local/bin/surfpool`)
+- **Default Local RPC**: `http://127.0.0.1:8899`
+- **Default Local WebSocket**: `ws://127.0.0.1:8900`
+- **Studio Port**: `18488` (disabled via `--no-studio`)
+
+### 8.2 Execution Commands
+1. **Launch Surfpool Mainnet Fork**:
+   ```bash
+   surfpool start --network mainnet --no-tui --no-studio --port 8899
+   ```
+   Or with a dedicated private RPC endpoint:
+   ```bash
+   surfpool start --rpc-url "$SOLANA_MAINNET_RPC_URL" --no-tui --no-studio --port 8899
+   ```
+2. **Run Phase 5D Verification Harness**:
+   - Deterministic offline CI verification:
+     ```bash
+     ./scripts/verify-phase-5d.sh --offline
+     ```
+   - Live Mainnet-fork protocol integration verification:
+     ```bash
+     ./scripts/verify-phase-5d.sh --live
+     ```
+

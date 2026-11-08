@@ -15,6 +15,8 @@ pub struct AppConfig {
 
     // Oracle & Protocol Configuration
     pub solana_rpc_url: String,
+    pub solana_mainnet_rpc_url: Option<String>,
+    pub surfpool_rpc_url: Option<String>,
     pub solana_network: String,
     pub pyth_program_id: String,
     pub pyth_max_age_secs: i64,
@@ -27,6 +29,7 @@ pub struct AppConfig {
     // Kamino Protocol Adapter Configuration (Phase 5B)
     pub kamino_adapter_url: String,
     pub kamino_market_address: String,
+    pub kamino_smoke_wallet: Option<String>,
     pub kamino_request_timeout_ms: u64,
     pub position_source: String,
 
@@ -50,6 +53,14 @@ impl fmt::Debug for AppConfig {
             .field("request_timeout_secs", &self.request_timeout_secs)
             .field("demo_mode", &self.demo_mode)
             .field("solana_rpc_url", &self.solana_rpc_url)
+            .field(
+                "solana_mainnet_rpc_url",
+                &self
+                    .solana_mainnet_rpc_url
+                    .as_ref()
+                    .map(|_| "[REDACTED_UPSTREAM_RPC]"),
+            )
+            .field("surfpool_rpc_url", &self.surfpool_rpc_url)
             .field("solana_network", &self.solana_network)
             .field("pyth_program_id", &self.pyth_program_id)
             .field("pyth_max_age_secs", &self.pyth_max_age_secs)
@@ -66,6 +77,7 @@ impl fmt::Debug for AppConfig {
             .field("oracle_source", &self.oracle_source)
             .field("kamino_adapter_url", &self.kamino_adapter_url)
             .field("kamino_market_address", &self.kamino_market_address)
+            .field("kamino_smoke_wallet", &self.kamino_smoke_wallet)
             .field("kamino_request_timeout_ms", &self.kamino_request_timeout_ms)
             .field("position_source", &self.position_source)
             .field("jupiter_api_url", &self.jupiter_api_url)
@@ -119,8 +131,17 @@ impl AppConfig {
             .map(|v| v.eq_ignore_ascii_case("true") || v == "1")
             .unwrap_or(true);
 
-        let solana_rpc_url =
-            env::var("SOLANA_RPC_URL").unwrap_or_else(|_| "http://127.0.0.1:8899".to_string());
+        let solana_mainnet_rpc_url = env::var("SOLANA_MAINNET_RPC_URL")
+            .ok()
+            .filter(|s| !s.trim().is_empty());
+
+        let surfpool_rpc_url = env::var("SURFPOOL_RPC_URL")
+            .ok()
+            .filter(|s| !s.trim().is_empty());
+
+        let solana_rpc_url = env::var("SOLANA_RPC_URL")
+            .or_else(|_| env::var("SURFPOOL_RPC_URL"))
+            .unwrap_or_else(|_| "http://127.0.0.1:8899".to_string());
 
         let solana_network = env::var("SOLANA_NETWORK").unwrap_or_else(|_| "surfpool".to_string());
 
@@ -157,7 +178,12 @@ impl AppConfig {
             env::var("KAMINO_ADAPTER_URL").unwrap_or_else(|_| "http://127.0.0.1:3002".to_string());
 
         let kamino_market_address = env::var("KAMINO_DEFAULT_MARKET")
-            .unwrap_or_else(|_| "7u3HeHxatcAACvdFtHGryaZWwZxKhqWisdHJaJBYbugj".to_string());
+            .or_else(|_| env::var("KAMINO_MARKET_ADDRESS"))
+            .unwrap_or_else(|_| "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF".to_string());
+
+        let kamino_smoke_wallet = env::var("KAMINO_SMOKE_WALLET")
+            .ok()
+            .filter(|s| !s.trim().is_empty());
 
         let kamino_request_timeout_ms: u64 = env::var("KAMINO_REQUEST_TIMEOUT_MS")
             .unwrap_or_else(|_| "10000".to_string())
@@ -200,6 +226,8 @@ impl AppConfig {
             request_timeout_secs,
             demo_mode,
             solana_rpc_url,
+            solana_mainnet_rpc_url,
+            surfpool_rpc_url,
             solana_network,
             pyth_program_id,
             pyth_max_age_secs,
@@ -210,6 +238,7 @@ impl AppConfig {
             oracle_source,
             kamino_adapter_url,
             kamino_market_address,
+            kamino_smoke_wallet,
             kamino_request_timeout_ms,
             position_source,
             jupiter_api_url,
@@ -232,6 +261,8 @@ impl AppConfig {
             request_timeout_secs: 5,
             demo_mode: true,
             solana_rpc_url: "http://127.0.0.1:8899".to_string(),
+            solana_mainnet_rpc_url: None,
+            surfpool_rpc_url: None,
             solana_network: "surfpool".to_string(),
             pyth_program_id: "rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ".to_string(),
             pyth_max_age_secs: 60,
@@ -241,7 +272,8 @@ impl AppConfig {
             hermes_url: Some("https://hermes.pyth.network".to_string()),
             oracle_source: "demo".to_string(),
             kamino_adapter_url: "http://127.0.0.1:3002".to_string(),
-            kamino_market_address: "7u3HeHxatcAACvdFtHGryaZWwZxKhqWisdHJaJBYbugj".to_string(),
+            kamino_market_address: "7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF".to_string(),
+            kamino_smoke_wallet: None,
             kamino_request_timeout_ms: 10000,
             position_source: "demo".to_string(),
             jupiter_api_url: "https://api.jup.ag/swap/v2".to_string(),

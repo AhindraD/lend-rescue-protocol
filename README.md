@@ -121,7 +121,7 @@ ls -la .agents/skills/frontend-design
 | 2 | Anchor Integration Tests | [x] |
 | 3 | Pure Rust Domain & Recovery Engine | [x] |
 | 4 | Backend API & Orchestration | [x] |
-| 5 | Protocol Adapters | [ ] |
+| 5 | Protocol Adapters | [x] |
 | 6 | Frontend Console & 3D Hero | [ ] |
 | 7 | End-to-End Devnet Verification | [ ] |
 

@@ -1,20 +1,40 @@
 use borsh::{BorshDeserialize, BorshSerialize};
+use serde::{Deserialize, Serialize};
 
 use super::error::PythError;
 
 pub const PYTH_RECEIVER_PROGRAM_ID: &str = "rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ";
+pub const PYTH_PUSH_ORACLE_PROGRAM_ID: &str = "pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT";
+pub const DEFAULT_SOL_USD_FEED_ACCOUNT: &str = "7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE";
+pub const DEFAULT_USDC_USD_FEED_ACCOUNT: &str = "Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX";
+
 pub const PRICE_UPDATE_V2_DISCRIMINATOR: [u8; 8] = [34, 241, 35, 99, 157, 126, 244, 205];
 pub const LEGACY_PYTH_MAGIC: u32 = 0xa1b2c3d4;
 
+/// Categorization of Pyth account models on Solana.
+///
+/// Distinguishes persistent shard-based price feed accounts (continuously sponsored on-chain)
+/// from ephemeral transaction-carried price update accounts (posted on-demand from Hermes)
+/// and legacy Pyth v2 price accounts.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum PythAccountKind {
+    /// Persistent shard-based Price Feed Account (e.g. shard 0 SOL/USD)
+    PriceFeed,
+    /// Ephemeral Price Update Account (posted via Hermes / PriceUpdateV2)
+    PriceUpdate,
+    /// Legacy Pyth Price Account (v2 magic 0xa1b2c3d4)
+    LegacyPrice,
+}
+
 /// Verification security level in Pyth PriceUpdateV2.
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub enum VerificationLevel {
     Partial { num_signatures: u8 },
     Full,
 }
 
 /// Inner price feed message payload.
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PriceFeedMessage {
     pub feed_id: [u8; 32],
     pub price: i64,
@@ -26,8 +46,11 @@ pub struct PriceFeedMessage {
     pub ema_conf: u64,
 }
 
-/// Official Pyth Core persistent on-chain price update account layout (Anchor PriceUpdateV2).
-#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq)]
+/// On-chain price update account layout (Anchor PriceUpdateV2).
+///
+/// Used both for ephemeral updates posted by Hermes and as the internal data layout
+/// for persistent shard-zero price feed accounts managed by the receiver program.
+#[derive(BorshSerialize, BorshDeserialize, Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PriceUpdateV2 {
     pub write_authority: [u8; 32],
     pub verification_level: VerificationLevel,
@@ -63,7 +86,7 @@ impl PriceUpdateV2 {
     pub fn to_account_bytes(&self) -> Result<Vec<u8>, PythError> {
         let mut bytes = Vec::with_capacity(146);
         bytes.extend_from_slice(&PRICE_UPDATE_V2_DISCRIMINATOR);
-        self.serialize(&mut bytes).map_err(|e| {
+        BorshSerialize::serialize(self, &mut bytes).map_err(|e| {
             PythError::InvalidAccountData(format!(
                 "PriceUpdateV2 Borsh serialization failed: {}",
                 e
@@ -73,8 +96,8 @@ impl PriceUpdateV2 {
     }
 }
 
-/// Unified decoded Pyth observation payload across PriceUpdateV2 and Legacy accounts.
-#[derive(Debug, Clone, PartialEq, Eq)]
+/// Unified decoded Pyth observation payload across PriceFeed, PriceUpdateV2, and Legacy accounts.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DecodedPythData {
     pub feed_id: Option<[u8; 32]>,
     pub price: i64,
@@ -83,9 +106,10 @@ pub struct DecodedPythData {
     pub publish_time: i64,
     pub slot: u64,
     pub is_legacy: bool,
+    pub account_kind: PythAccountKind,
 }
 
-/// Decodes Pyth account bytes, supporting both PriceUpdateV2 and Legacy Pyth formats.
+/// Decodes Pyth account bytes, identifying whether the account is a PriceUpdateV2 or Legacy account.
 pub fn try_decode_pyth_account(data: &[u8]) -> Result<DecodedPythData, PythError> {
     if data.len() < 8 {
         return Err(PythError::InvalidAccountData(
@@ -104,6 +128,7 @@ pub fn try_decode_pyth_account(data: &[u8]) -> Result<DecodedPythData, PythError
             publish_time: account.price_message.publish_time,
             slot: account.posted_slot,
             is_legacy: false,
+            account_kind: PythAccountKind::PriceUpdate,
         });
     }
 
@@ -137,6 +162,7 @@ pub fn try_decode_pyth_account(data: &[u8]) -> Result<DecodedPythData, PythError
                 publish_time: timestamp,
                 slot: pub_slot,
                 is_legacy: true,
+                account_kind: PythAccountKind::LegacyPrice,
             });
         }
     }
@@ -144,4 +170,16 @@ pub fn try_decode_pyth_account(data: &[u8]) -> Result<DecodedPythData, PythError
     Err(PythError::InvalidAccountData(
         "Unrecognized Pyth account format or invalid discriminator".to_string(),
     ))
+}
+
+/// Decodes a persistent on-chain price feed account (e.g. shard 0 SOL/USD or USDC/USD).
+///
+/// Persistent price feed accounts on Solana use the PriceUpdateV2 data layout internally
+/// but are derived deterministically by shard ID and feed ID.
+pub fn try_decode_price_feed_account(data: &[u8]) -> Result<DecodedPythData, PythError> {
+    let mut decoded = try_decode_pyth_account(data)?;
+    if !decoded.is_legacy {
+        decoded.account_kind = PythAccountKind::PriceFeed;
+    }
+    Ok(decoded)
 }

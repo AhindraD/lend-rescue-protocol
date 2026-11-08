@@ -1,3 +1,6 @@
+use base64::engine::general_purpose::STANDARD as BASE64;
+use base64::Engine;
+use serde_json::json;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -155,6 +158,232 @@ impl HermesTransport for MockHermesTransport {
             map.get(&feed_id_hex.to_lowercase())
                 .cloned()
                 .ok_or_else(|| PythError::MissingFeedMapping(feed_id_hex.to_string()))
+        })
+    }
+}
+
+/// Live HTTP Solana JSON-RPC transport for reading real on-chain accounts (e.g. from Surfpool or Solana RPC).
+pub struct HttpSolanaRpcTransport {
+    rpc_url: String,
+    client: reqwest::Client,
+}
+
+impl HttpSolanaRpcTransport {
+    pub fn new(rpc_url: impl Into<String>, timeout_ms: u64) -> Self {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_millis(timeout_ms))
+            .build()
+            .unwrap_or_default();
+        Self {
+            rpc_url: rpc_url.into(),
+            client,
+        }
+    }
+}
+
+impl SolanaRpcTransport for HttpSolanaRpcTransport {
+    fn get_account_data<'a>(
+        &'a self,
+        pubkey: &'a str,
+    ) -> BoxFuture<'a, Result<Option<AccountDataResult>, PythError>> {
+        Box::pin(async move {
+            let body = json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "getAccountInfo",
+                "params": [
+                    pubkey,
+                    {
+                        "encoding": "base64",
+                        "commitment": "confirmed"
+                    }
+                ]
+            });
+
+            let resp = self
+                .client
+                .post(&self.rpc_url)
+                .json(&body)
+                .send()
+                .await
+                .map_err(|e| {
+                    if e.is_timeout() {
+                        PythError::Timeout(5000)
+                    } else {
+                        PythError::RpcTransport(format!("HTTP RPC request failed: {}", e))
+                    }
+                })?;
+
+            if !resp.status().is_success() {
+                return Err(PythError::RpcTransport(format!(
+                    "HTTP RPC response error status: {}",
+                    resp.status()
+                )));
+            }
+
+            let resp_json: serde_json::Value = resp.json().await.map_err(|e| {
+                PythError::RpcTransport(format!("Failed to parse JSON RPC response: {}", e))
+            })?;
+
+            if let Some(err) = resp_json.get("error") {
+                return Err(PythError::RpcTransport(format!(
+                    "Solana RPC returned error: {}",
+                    err
+                )));
+            }
+
+            let result = match resp_json.get("result") {
+                Some(r) if !r.is_null() => r,
+                _ => return Ok(None),
+            };
+
+            let val = match result.get("value") {
+                Some(v) if !v.is_null() => v,
+                _ => return Ok(None),
+            };
+
+            let owner = val
+                .get("owner")
+                .and_then(|o| o.as_str())
+                .unwrap_or("")
+                .to_string();
+
+            let slot = result
+                .get("context")
+                .and_then(|c| c.get("slot"))
+                .and_then(|s| s.as_u64())
+                .unwrap_or(0);
+
+            let data_b64 = val
+                .get("data")
+                .and_then(|d| d.get(0))
+                .and_then(|s| s.as_str())
+                .ok_or_else(|| {
+                    PythError::InvalidAccountData(
+                        "Missing base64 data array in getAccountInfo".to_string(),
+                    )
+                })?;
+
+            let data = BASE64.decode(data_b64).map_err(|e| {
+                PythError::InvalidAccountData(format!("Base64 decode failed: {}", e))
+            })?;
+
+            Ok(Some(AccountDataResult { owner, data, slot }))
+        })
+    }
+}
+
+/// Live HTTP Hermes transport for querying Pyth Hermes price update service.
+pub struct HttpHermesTransport {
+    hermes_url: String,
+    api_key: Option<String>,
+    client: reqwest::Client,
+}
+
+impl HttpHermesTransport {
+    pub fn new(hermes_url: impl Into<String>, api_key: Option<String>, timeout_ms: u64) -> Self {
+        let client = reqwest::Client::builder()
+            .timeout(std::time::Duration::from_millis(timeout_ms))
+            .build()
+            .unwrap_or_default();
+        Self {
+            hermes_url: hermes_url.into(),
+            api_key,
+            client,
+        }
+    }
+}
+
+impl HermesTransport for HttpHermesTransport {
+    fn get_latest_price_update<'a>(
+        &'a self,
+        feed_id_hex: &'a str,
+    ) -> BoxFuture<'a, Result<HermesPriceUpdate, PythError>> {
+        Box::pin(async move {
+            let url = format!(
+                "{}/v2/updates/price/latest?ids[]={}",
+                self.hermes_url.trim_end_matches('/'),
+                feed_id_hex
+            );
+
+            let mut req = self.client.get(&url);
+            if let Some(key) = &self.api_key {
+                req = req.header("Authorization", format!("Bearer {}", key));
+            }
+
+            let resp = req.send().await.map_err(|e| {
+                if e.is_timeout() {
+                    PythError::Timeout(5000)
+                } else {
+                    PythError::HermesError(format!("Hermes HTTP request failed: {}", e))
+                }
+            })?;
+
+            if resp.status() == reqwest::StatusCode::UNAUTHORIZED
+                || resp.status() == reqwest::StatusCode::FORBIDDEN
+            {
+                return Err(PythError::HermesUnauthorized(
+                    "Invalid or missing Pyth API key for Hermes".to_string(),
+                ));
+            }
+
+            if !resp.status().is_success() {
+                return Err(PythError::HermesError(format!(
+                    "Hermes returned error status: {}",
+                    resp.status()
+                )));
+            }
+
+            let resp_json: serde_json::Value = resp.json().await.map_err(|e| {
+                PythError::HermesError(format!("Failed to parse Hermes response JSON: {}", e))
+            })?;
+
+            let parsed = resp_json
+                .get("parsed")
+                .and_then(|p| p.get(0))
+                .ok_or_else(|| PythError::MissingFeedMapping(feed_id_hex.to_string()))?;
+
+            let feed_id = parsed
+                .get("id")
+                .and_then(|id| id.as_str())
+                .unwrap_or(feed_id_hex)
+                .to_string();
+
+            let price_data = parsed.get("price").ok_or_else(|| {
+                PythError::InvalidAccountData("Missing price object in Hermes update".to_string())
+            })?;
+
+            let price: i64 = price_data
+                .get("price")
+                .and_then(|p| p.as_str())
+                .and_then(|s| s.parse().ok())
+                .ok_or_else(|| PythError::InvalidAccountData("Invalid price value".to_string()))?;
+
+            let conf: u64 = price_data
+                .get("conf")
+                .and_then(|c| c.as_str())
+                .and_then(|s| s.parse().ok())
+                .unwrap_or(0);
+
+            let expo: i32 = price_data
+                .get("expo")
+                .and_then(|e| e.as_i64())
+                .map(|e| e as i32)
+                .unwrap_or(-8);
+
+            let publish_time: i64 = price_data
+                .get("publish_time")
+                .and_then(|t| t.as_i64())
+                .unwrap_or(0);
+
+            Ok(HermesPriceUpdate {
+                feed_id,
+                price,
+                conf,
+                expo,
+                publish_time,
+                slot: None,
+            })
         })
     }
 }

@@ -262,3 +262,75 @@ $$\text{planning\_min\_output} = \frac{\text{outAmount} \times (10{,}000 - \text
 Phase 5B normalizes and preserves every deposit and debt leg of Kamino obligations. The current recovery optimizer evaluates single-asset pairs (dominant collateral / debt). To prevent misleading recovery recommendations:
 - Full recovery optimization requests on positions where `protocol_source == KaminoMainnet` or multi-asset positions (`collateral_positions.len() > 1 || debt_positions.len() > 1`) are rejected with HTTP 422 Unprocessable Entity.
 - Standalone swap quotes for explicit mint pairs (`POST /api/v1/recovery/quote`) remain fully available.
+
+---
+
+## 9. Protocol Adapters & Surfpool Mainnet Fork Integration (Phase 5D)
+
+### 9.1 Cross-Protocol Data Flow & Read-Only Boundaries
+LendRescue integrates real Solana lending, oracle, and swap protocols through read-only adapters verified against a local Surfpool Mainnet fork:
+1. **Kamino Lending Adapter** (`apps/adapters/kamino`): Read-only integration via Kamino TypeScript SDK (`@kamino-finance/klend-sdk`). Loads Kamino Main Market (`7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF`), reserve accounts, mints, decimals, and user obligations from Surfpool local RPC (`127.0.0.1:8899`).
+2. **Pyth Core Price Provider** (`apps/api/src/adapters/pyth`): Queries persistent shard-0 Price Feed Accounts (`7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE` for SOL/USD, `Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX` for USDC/USD) managed by Pyth receiver `rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ`.
+3. **Jupiter Swap API V2 Provider** (`apps/api/src/adapters/jupiter`): Strictly quote-only integration fetching indicative quotes via `GET /order` without `taker`.
+4. **Risk & Recovery Engines** (`crates/risk-engine`, `crates/recovery-engine`): Own all financial valuation, health-factor calculation, liquidation price derivation, feasibility testing, and least-cost ranking using exact integer fixed-point arithmetic without float conversions.
+
+```text
+Surfpool Mainnet Fork (127.0.0.1:8899)
+        |
+        v
+Kamino Market + Reserves + Obligations
+        |
+        v
+Position Normalization
+        |
+        +----------------------+
+        |                      |
+        v                      v
+Pyth Oracle Provider      Reserve Metadata
+(Persistent Feed PDAs)         |
+        |                      |
+        +----------+-----------+
+                   |
+                   v
+          Position Validation
+                   |
+                   v
+             Risk Engine
+                   |
+                   v
+       Recovery Feasibility Check
+                   |
+          +--------+--------+
+          |                 |
+          v                 v
+    Supported Shape    Unsupported Shape (Multi-Asset)
+          |                 |
+          v                 v
+   Candidate Generation   Explicit 422 Error
+          |
+          v
+   Jupiter Quote Provider (V2 /order, no taker)
+          |
+          v
+   Candidate Cost & Slippage Enrichment
+          |
+          v
+   Least-Cost Ranking
+          |
+          v
+   Advisory Recovery Response (Non-Custodial)
+```
+
+### 9.2 Account-Model & Provenance Separation
+- **Persistent Price Feed Accounts**: Derived via PDA `[shard_id (u16 LE), feed_id]` under program `pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT` and owned by receiver `rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ`. Continuously sponsored on-chain.
+- **Price Update Accounts**: Ephemeral accounts created on-demand when posting Hermes updates.
+- **Provenance Labels**: `SurfpoolSimulated`, `MainnetObserved`, and `SyntheticFixture` are explicitly preserved across observations and API responses.
+
+### 9.3 Environment Separation
+- `SOLANA_RPC_URL`: Local Surfpool RPC endpoint (`http://127.0.0.1:8899`).
+- `SOLANA_MAINNET_RPC_URL`: Upstream Mainnet RPC used solely by Surfpool as its data source.
+- `SURFPOOL_RPC_URL`: Optional explicit local endpoint.
+- `KAMINO_MARKET_ADDRESS`: Mainnet market configuration (`7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF`).
+- `KAMINO_SMOKE_WALLET`: Public wallet address for obligation smoke testing.
+- `JUPITER_API_KEY`: Redacted API key for Jupiter endpoints.
+- `PYTH_API_KEY`: Redacted API key for authenticated Hermes endpoints.
