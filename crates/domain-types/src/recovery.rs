@@ -85,3 +85,4 @@ pub struct RecoveryCandidate {
     pub score: u32,
     pub score_breakdown: ScoreBreakdown,
 }
+

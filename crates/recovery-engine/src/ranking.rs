@@ -127,3 +127,4 @@ mod tests {
         assert_eq!(candidates[2].action, RecoveryAction::AddCollateral);
     }
 }
+

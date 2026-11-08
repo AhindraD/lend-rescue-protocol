@@ -74,3 +74,4 @@ impl Asset {
         Self::new(AssetId::SUsdc, "Synthetic USD Coin", 6, mint)
     }
 }
+

@@ -20,3 +20,4 @@ serde_json = { workspace = true }
 [features]
 default = ["std"]
 std = ["domain-types/std", "risk-engine/std", "serde/std"]
+

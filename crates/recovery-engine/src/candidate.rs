@@ -35,3 +35,4 @@ pub struct RecoveryProposal {
     /// Breakdown of individual scoring terms
     pub score_breakdown: ScoreBreakdown,
 }
+
