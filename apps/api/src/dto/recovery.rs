@@ -4,16 +4,22 @@ use utoipa::ToSchema;
 
 use crate::dto::common::TokenAmountDto;
 
-/// Request payload to quote a single recovery action.
+/// Request payload to quote a single recovery action or standalone swap quote.
 #[derive(Debug, Clone, Serialize, Deserialize, ToSchema)]
 #[serde(rename_all = "camelCase")]
 pub struct RecoveryQuoteRequest {
-    pub position_id: String,
-    pub action: String,
+    pub position_id: Option<String>,
+    pub action: Option<String>,
     pub target_health_factor: Option<String>,
     pub max_debt_repayment: Option<String>,
     pub max_collateral_spend: Option<String>,
     pub max_slippage_bps: Option<u16>,
+
+    // Explicit mints and amount for standalone swap quotes (e.g. Jupiter Swap API V2)
+    pub input_mint: Option<String>,
+    pub output_mint: Option<String>,
+    pub amount: Option<String>,
+    pub refresh: Option<bool>,
 }
 
 /// Request payload to optimize across all candidate recovery actions.
@@ -53,10 +59,16 @@ pub struct RecoveryPlanDto {
     pub total_cost_raw: String,
     pub score: u32,
     pub score_breakdown: ScoreBreakdownDto,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub swap_quote: Option<SwapQuoteDto>,
 }
 
 impl RecoveryPlanDto {
     pub fn from_proposal(p: &RecoveryProposal) -> Self {
+        Self::from_proposal_with_swap(p, None)
+    }
+
+    pub fn from_proposal_with_swap(p: &RecoveryProposal, swap_quote: Option<SwapQuoteDto>) -> Self {
         let format_quote = |raw: u64| -> String {
             let whole = raw / 1_000_000;
             let frac = raw % 1_000_000;
@@ -96,6 +108,86 @@ impl RecoveryPlanDto {
                 slippage_penalty: p.score_breakdown.slippage_penalty,
                 total_score: p.score_breakdown.total_score(),
             },
+            swap_quote,
+        }
+    }
+}
+
+/// Individual step in a multi-hop swap route.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SwapRouteStepDto {
+    pub amm_key: Option<String>,
+    pub label: Option<String>,
+    pub input_mint: String,
+    pub output_mint: String,
+    pub in_amount: String,
+    pub out_amount: String,
+    pub fee_amount: String,
+    pub fee_mint: Option<String>,
+    pub percent: u8,
+}
+
+/// Indicative swap quote details from DEX router (e.g. Jupiter Swap API V2).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, ToSchema)]
+#[serde(rename_all = "camelCase")]
+pub struct SwapQuoteDto {
+    pub provider: String,
+    pub input_mint: String,
+    pub output_mint: String,
+    pub in_amount: TokenAmountDto,
+    pub expected_out_amount: TokenAmountDto,
+    pub planning_min_out_amount: TokenAmountDto,
+    pub fee_bps: u16,
+    pub fee_mint: Option<String>,
+    pub platform_fee_bps: Option<u16>,
+    pub platform_fee_amount: Option<String>,
+    pub router: String,
+    pub mode: String,
+    pub price_impact_pct: Option<String>,
+    pub route_plan: Vec<SwapRouteStepDto>,
+    pub observed_at: i64,
+    pub valid_until: i64,
+    pub is_indicative: bool,
+    pub is_valid: bool,
+}
+
+impl SwapQuoteDto {
+    pub fn from_domain(q: &domain_types::SwapQuote) -> Self {
+        let now = chrono::Utc::now().timestamp();
+        Self {
+            provider: q.provider.clone(),
+            input_mint: q.input_mint.clone(),
+            output_mint: q.output_mint.clone(),
+            in_amount: TokenAmountDto::from_domain(&q.in_amount),
+            expected_out_amount: TokenAmountDto::from_domain(&q.expected_out_amount),
+            planning_min_out_amount: TokenAmountDto::from_domain(&q.planning_min_out_amount),
+            fee_bps: q.fee_bps,
+            fee_mint: q.fee_mint.clone(),
+            platform_fee_bps: q.platform_fee_bps,
+            platform_fee_amount: q.platform_fee_amount.map(|a| a.to_string()),
+            router: q.router.clone(),
+            mode: q.mode.clone(),
+            price_impact_pct: q.price_impact_pct.clone(),
+            route_plan: q
+                .route_plan
+                .iter()
+                .map(|s| SwapRouteStepDto {
+                    amm_key: s.amm_key.clone(),
+                    label: s.label.clone(),
+                    input_mint: s.input_mint.clone(),
+                    output_mint: s.output_mint.clone(),
+                    in_amount: s.in_amount.to_string(),
+                    out_amount: s.out_amount.to_string(),
+                    fee_amount: s.fee_amount.to_string(),
+                    fee_mint: s.fee_mint.clone(),
+                    percent: s.percent,
+                })
+                .collect(),
+            observed_at: q.observed_at,
+            valid_until: q.valid_until,
+            is_indicative: q.is_indicative,
+            is_valid: !q.is_stale(now),
         }
     }
 }

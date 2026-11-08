@@ -85,6 +85,27 @@ To preserve stability and avoid broken peer dependency graphs:
 2. Never float web3.js dependencies to `^2.0.0` or `^3.0.0` in the Anchor execution path.
 3. If future non-Anchor client modules explore Solana Kit / web3.js v2, they must be isolated in independent sub-packages behind an explicit adapter boundary.
 
+### 3.3 Kamino Lending SDK & Solana Kit Isolation Boundary
+To consume Kamino Lending's official TypeScript SDK without corrupting root Anchor 1.2.2:
+- **Package**: `@kamino-finance/klend-sdk` pinned to `13.0.6` (latest stable verified).
+- **Location**: `apps/adapters/kamino` (configured as an isolated workspace package in `pnpm-workspace.yaml`).
+- **Internal Dependencies**:
+  - `@solana/kit`: `2.3.0` (modern kit transport and RPC client)
+  - `@solana/web3.js`: `1.98.0` (adapter internal bridge)
+  - `decimal.js`: `^10.4.3` (fixed-precision calculations)
+  - `express`: `^4.21.2` (loopback micro-service HTTP router)
+- **Node.js Runtime**: Verified on `26.10.0` (Active LTS).
+- **TypeScript**: `5.7.3` in adapter, compatible with root `5.9.3`.
+- **Isolation Guarantee**: The Kamino adapter runs as an independent daemon bound strictly to `127.0.0.1:3002`. Neither `@solana/kit` nor `@coral-xyz/anchor@0.28.0` are ever loaded into the root Anchor program build or the integration test suite. Root tests continue executing against `@anchor-lang/core@1.2.2` and `@solana/web3.js@1.99.0`.
+
+### 3.4 Jupiter Swap API V2 Quote-Only Specification
+- **API Version**: Jupiter Swap API V2
+- **Base URL**: `https://api.jup.ag/swap/v2`
+- **Primary Endpoint**: `GET /order?inputMint=<INPUT_MINT>&outputMint=<OUTPUT_MINT>&amount=<RAW_AMOUNT>`
+- **Quote-Only Invariant**: The `taker` parameter is strictly omitted, guaranteeing `transaction: null`. Endpoints that construct instructions (`/build`) or submit transactions (`/execute`, `/submit`) are strictly prohibited.
+- **Header Authentication**: Optional `x-api-key: <KEY>`. Keyless queries supported within standard public rate limits (~0.5 rps).
+- **Documentation Reference**: <https://developers.jup.ag/docs/swap/index.md>
+
 ---
 
 ## 4. Surfpool Configuration
@@ -148,4 +169,33 @@ The backend API (`apps/api`) runs on a pinned async Rust stack integrated with P
 - **Agave / Solana Releases**: <https://github.com/anza-xyz/agave/releases>
 - **Surfpool Documentation**: <https://surfpool.run>
 - **Anthropic Agent Skills**: <https://github.com/anthropics/skills/tree/main/skills/frontend-design>
+
+---
+
+## 8. Surfpool Mainnet Fork Verification (Phase 5D)
+
+### 8.1 Installed Version & Configuration
+- **Surfpool Binary**: `surfpool 1.7.0` (`/home/kibi/.local/bin/surfpool`)
+- **Default Local RPC**: `http://127.0.0.1:8899`
+- **Default Local WebSocket**: `ws://127.0.0.1:8900`
+- **Studio Port**: `18488` (disabled via `--no-studio`)
+
+### 8.2 Execution Commands
+1. **Launch Surfpool Mainnet Fork**:
+   ```bash
+   surfpool start --network mainnet --no-tui --no-studio --port 8899
+   ```
+   Or with a dedicated private RPC endpoint:
+   ```bash
+   surfpool start --rpc-url "$SOLANA_MAINNET_RPC_URL" --no-tui --no-studio --port 8899
+   ```
+2. **Run Phase 5D Verification Harness**:
+   - Deterministic offline CI verification:
+     ```bash
+     ./scripts/verify-phase-5d.sh --offline
+     ```
+   - Live Mainnet-fork protocol integration verification:
+     ```bash
+     ./scripts/verify-phase-5d.sh --live
+     ```
 

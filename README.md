@@ -112,21 +112,27 @@ ls -la .agents/skills/frontend-design
 
 ---
 
-## Development Progress
+## Phased Implementation Roadmap
 
-LendRescue is built following strict phased gates. Completion is tracked authoritatively in this table:
+| Phase | Description | Done |
+|---|---|---|
+| 0 | Project Foundation & Toolchain Lock | [x] |
+| 1 | Modular Anchor Program | [x] |
+| 2 | Anchor Integration Tests | [x] |
+| 3 | Pure Rust Domain & Recovery Engine | [x] |
+| 4 | Backend API & Orchestration | [x] |
+| 5 | Protocol Adapters | [x] |
+| 6 | Frontend Console & 3D Hero | [ ] |
+| 7 | End-to-End Devnet Verification | [ ] |
 
-| Phase | Description | Status | Commit / Details |
-|---|---|---|---|
-| **0** | **Specifications & Toolchain Lock** | Complete | [`60a2f96`](https://github.com/AhindraD/lend-rescue-protocol/commit/60a2f96) — Pinned toolchain, architecture, user stories, ADRs, Anthropic frontend-design skill |
-| **1** | **Modular Anchor Program** | Complete | [`c48585b`](https://github.com/AhindraD/lend-rescue-protocol/commit/c48585b) — Modular Anchor recovery program (`programs/lend_rescue`) *(Historical note: Phase 2 discovered and corrected duplicate helper definitions in `execute_recovery.rs` in commit `a126e50` that had blocked compilation. Original Phase 1 commit was not independently reproducible.)* |
-| **2** | **Anchor Integration & Security Tests** | Complete | [`b02fec1`](https://github.com/AhindraD/lend-rescue-protocol/commit/b02fec1) — 39 integration tests passed, 0 failed. Surfpool 1.7.0 used as local validator. Complete atomic rollback and security defenses verified. |
-| **3** | **Pure Rust Domain & Recovery Engine** | Complete | [`5d285cb`](https://github.com/AhindraD/lend-rescue-protocol/commit/5d285cb) — Three crates: `crates/domain-types`, `crates/risk-engine`, `crates/recovery-engine`. 30 workspace tests passed. Clippy (`-D warnings`) and Anchor build passed. Checked fixed-point arithmetic. |
-| **4** | **Axum Backend & Engine Integration** | Complete | [`9304120`](https://github.com/AhindraD/lend-rescue-protocol/commit/9304120) — Pinned crate `lend-rescue-api` (`apps/api`). REST API `/api/v1` for markets, positions, oracles, risk, recovery quotes, optimization, and OpenAPI 3.1 JSON. Least-cost ranking objective verified. 17 API tests passed, 47 workspace tests passed, Clippy passed, Anchor 39 tests passed. |
-| **4A** | **Anchor Architecture Hardening** | Complete | [`3d03089`](https://github.com/AhindraD/lend-rescue-protocol/commit/3d03089) — Redesigned `RecoveryPolicy` with `Option<Pubkey>` delegate, strict separation of `execution_nonce` (starts at 0, incremented only on successful recovery) and `policy_revision` (starts at 1, incremented on updates/revocation), and `schema_version = 2`. Adopted `InitSpace` derive across all program accounts (`space = 8 + Account::INIT_SPACE`). Standardized context-method instruction architecture (`impl<'info> AccountsStruct<'info>`). 42 Anchor integration tests passed, 50 workspace tests passed. |
-| **5** | **Protocol Adapters (Kamino, Pyth, Jupiter, Surfpool)** | Pending | Next planned phase. |
-| **6** | **Frontend Web Console & 3D Hero** | Pending | Next planned phase. |
-| **7** | **End-to-End Devnet Verification** | Pending | Final demonstration phase. |
+- **Phase 0: Project Foundation & Toolchain Lock** Establish root specifications, architecture diagrams, user stories, ADRs, agent instructions, design skill, and toolchain lock.
+- **Phase 1: Modular Anchor Program** Implement the synthetic recovery program (`programs/lend_rescue`) with modular instructions and state.
+- **Phase 2: Anchor Integration Tests** Comprehensive happy-path and failure test suite proving atomic rollback.
+- **Phase 3: Pure Rust Domain & Recovery Engine** Implement fixed-point math, synthetic Health Factor, liquidation prices, and candidate ranking in `crates/*`.
+- **Phase 4: Backend API & Orchestration** Build Axum REST API and database caching layer.
+- **Phase 5: Protocol Adapters** Integrate Kamino read-only, Pyth/Mock oracle, Jupiter quote, and Surfpool fork adapters.
+- **Phase 6: Frontend Console & 3D Hero** Build Next.js web application with editorial design system and procedural Three.js hero.
+- **Phase 7: End-to-End Devnet Verification** Demonstrate complete synthetic recovery and rejected out-of-policy execution on Devnet.
 
 ### Architectural References:
 - [SPEC.md](file:///home/kibi/web3projects/hackathons/mlh/lend-rescue-protocol/SPEC.md) — Comprehensive technical requirements and domain invariants.

@@ -27,6 +27,18 @@ pub enum ApiError {
 
     #[error("Internal service error: {0}")]
     Internal(String),
+
+    #[error("Request timed out: {0}")]
+    Timeout(String),
+
+    #[error("Too many requests: {0}")]
+    TooManyRequests(String),
+
+    #[error("Unauthorized: {0}")]
+    Unauthorized(String),
+
+    #[error("Bad gateway: {0}")]
+    BadGateway(String),
 }
 
 impl ApiError {
@@ -50,6 +62,10 @@ impl ApiError {
             },
             ApiError::Database(_) => StatusCode::INTERNAL_SERVER_ERROR,
             ApiError::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+            ApiError::Timeout(_) => StatusCode::GATEWAY_TIMEOUT,
+            ApiError::TooManyRequests(_) => StatusCode::TOO_MANY_REQUESTS,
+            ApiError::Unauthorized(_) => StatusCode::UNAUTHORIZED,
+            ApiError::BadGateway(_) => StatusCode::BAD_GATEWAY,
         }
     }
 
@@ -72,6 +88,10 @@ impl ApiError {
             },
             ApiError::Database(_) => "DATABASE_ERROR",
             ApiError::Internal(_) => "INTERNAL_ERROR",
+            ApiError::Timeout(_) => "TIMEOUT",
+            ApiError::TooManyRequests(_) => "RATE_LIMITED",
+            ApiError::Unauthorized(_) => "UNAUTHORIZED",
+            ApiError::BadGateway(_) => "BAD_GATEWAY",
         }
     }
 }

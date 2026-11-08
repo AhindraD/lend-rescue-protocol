@@ -146,6 +146,21 @@ The Anchor smart contract treats the backend API as untrusted:
 - **Stack Frame Safety**: `ExecuteRecovery` leverages `Box<Account<'info, T>>` and `#[inline(never)]` helper methods for action branches, guaranteeing execution well within the Solana runtime 4KB stack boundary.
 - Guarantees complete atomic rollback on any failure.
 
+### 4.5 Protocol & Oracle Adapters (`apps/api/src/adapters`)
+- **Kamino Read-Only Lending Adapter (`apps/adapters/kamino` & `apps/api/src/adapters/kamino`)**:
+  - **SDK Isolation Boundary**: The official `@kamino-finance/klend-sdk@13.0.6` depends on modern `@solana/kit@2.3.0` and legacy `@coral-xyz/anchor@0.28.0`. It is isolated in an independent Node/TypeScript service (`apps/adapters/kamino`) binding to internal loopback (`127.0.0.1:3002`), completely shielding the root Anchor 1.2.2 toolchain and `@solana/web3.js@1.99.0` lock.
+  - **Strict Read-Only Boundary**: Purely non-custodial and advisory. Forbidden from constructing, signing, or broadcasting lending transactions (deposit, withdraw, borrow, repay, liquidate). Verified by automated AST and interface inspection tests.
+  - **Multi-Asset Position Normalization**: Preserves multi-asset collateral deposits (e.g. SOL, bSOL) and debt borrows (e.g. USDC, USDT) with exact base units (`u64`), decimals, and USD valuations, without lossy projection or flattening.
+  - **Official Protocol Metrics Preservation**: Ingests and preserves Kamino's native obligation risk parameters (`borrowLimit`, `liquidationThreshold`, `loanToValue`, `borrowUtilization`, `netAccountValue`), keeping official protocol numbers distinct from generic synthetic models.
+  - **Slot Consistency & Drift Defense**: Evaluates reserves and obligations against coherent `LedgerInstant` (slot and block time). Rejects cross-account observations exceeding configurable slot drift (`max_slot_drift = 50`) with typed `InconsistentSlotError` / 409 Conflict.
+- **Pyth Core Price Provider (`PythOracleProvider`)**:
+  - Read-only persistent on-chain Pyth Core integration decoding Anchor `PriceUpdateV2` Borsh accounts under program `rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ` as well as legacy Pyth price accounts.
+  - Zero-Trust Validation: Enforces positive price mantissa, confidence interval bounds (default $\le 200$ bps), freshness bounds ($\le 60$s), plausible publication timestamp (rejecting future timestamps), and feed identity verification (`0xef0d8b...` for SOL/USD, `0xeaa020...` for USDC/USD).
+  - Explicit Provider Errors: Never falls back silently to mock oracle if Pyth validation fails. Returns typed `PythError` / `ApiError`.
+  - Authenticated Hermes Support: Configurable server-side Bearer authentication for Hermes endpoints with API key redaction in logging and debug output.
+- **Mock Oracle Provider (`MockOracleProvider`)**:
+  - Deterministic synthetic price provider with explicit provenance metadata (`OracleSource::SyntheticFixture` or `OracleSource::DevnetExecuted`). Never reports mock data as `Mainnet Observed`. Supports programmatic price shocks for testing recovery feasibility.
+
 ---
 
 ## 5. Data Flow and Provenance
@@ -215,3 +230,107 @@ Order of evaluation in `execute_recovery`:
 14. Enforce `post_hf >= policy.min_resulting_hf`.
 15. Increment `policy.execution_nonce` and write `RecoveryReceipt` (seeds `[b"receipt", position, nonce]`).
 16. Emit `RecoveryExecutedEvent`.
+
+---
+
+## 8. Jupiter Swap API V2 Integration & Trust Boundary
+
+### 8.1 Strictly Quote-Only Architecture
+LendRescue integrates Jupiter Swap API V2 to obtain real-world indicative swap quotes for recovery planning:
+- **Base URL**: `https://api.jup.ag/swap/v2`
+- **Endpoint**: `GET /order?inputMint=<MINT>&outputMint=<MINT>&amount=<RAW_AMOUNT>`
+- **Quote-Only Mode**: The `taker` query parameter is strictly omitted. In Jupiter V2, omitting `taker` guarantees that Jupiter returns quote and routing metadata with `transaction: null`.
+- **Security Invariant**: LendRescue never builds, signs, or executes swap transactions:
+  - `/build` is excluded (no raw instruction assembly).
+  - `/execute` and `/submit` are excluded.
+  - If an unexpected non-null `transaction` payload appears in the response, it is rejected with `JupiterError::UnexpectedTransactionPayload` and never exposed or persisted.
+
+### 8.2 Fee Normalization & Accounting
+In Jupiter Swap API V2:
+- `outAmount`: Expected output token amount before slippage, already net of platform fees.
+- `feeBps`: Router/liquidity provider fee in basis points.
+- `platformFee`: Integrator fee metadata (`feeBps` and `amount`).
+- **Accounting Invariant**: Because `outAmount` already deducts platform fees, LendRescue does not subtract fees a second time. Fee metadata is tracked exclusively for reporting, transparency, and candidate scoring.
+
+### 8.3 Conservative Slippage Planning Floor
+During recovery planning, LendRescue computes a conservative local minimum output threshold:
+$$\text{planning\_min\_output} = \frac{\text{outAmount} \times (10{,}000 - \text{max\_slippage\_bps})}{10{,}000}$$
+- Computed using pure checked 128-bit integer floor arithmetic without floating-point primitives.
+- Distinguishes between LendRescue's local planning floor and Jupiter's indicative quote.
+
+### 8.4 Multi-Asset Kamino Safety Guard
+Phase 5B normalizes and preserves every deposit and debt leg of Kamino obligations. The current recovery optimizer evaluates single-asset pairs (dominant collateral / debt). To prevent misleading recovery recommendations:
+- Full recovery optimization requests on positions where `protocol_source == KaminoMainnet` or multi-asset positions (`collateral_positions.len() > 1 || debt_positions.len() > 1`) are rejected with HTTP 422 Unprocessable Entity.
+- Standalone swap quotes for explicit mint pairs (`POST /api/v1/recovery/quote`) remain fully available.
+
+---
+
+## 9. Protocol Adapters & Surfpool Mainnet Fork Integration (Phase 5D)
+
+### 9.1 Cross-Protocol Data Flow & Read-Only Boundaries
+LendRescue integrates real Solana lending, oracle, and swap protocols through read-only adapters verified against a local Surfpool Mainnet fork:
+1. **Kamino Lending Adapter** (`apps/adapters/kamino`): Read-only integration via Kamino TypeScript SDK (`@kamino-finance/klend-sdk`). Loads Kamino Main Market (`7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF`), reserve accounts, mints, decimals, and user obligations from Surfpool local RPC (`127.0.0.1:8899`).
+2. **Pyth Core Price Provider** (`apps/api/src/adapters/pyth`): Queries persistent shard-0 Price Feed Accounts (`7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE` for SOL/USD, `Dpw1EAVrSB1ibxiDQyTAW6Zip3J4Btk2x4SgApQCeFbX` for USDC/USD) managed by Pyth receiver `rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ`.
+3. **Jupiter Swap API V2 Provider** (`apps/api/src/adapters/jupiter`): Strictly quote-only integration fetching indicative quotes via `GET /order` without `taker`.
+4. **Risk & Recovery Engines** (`crates/risk-engine`, `crates/recovery-engine`): Own all financial valuation, health-factor calculation, liquidation price derivation, feasibility testing, and least-cost ranking using exact integer fixed-point arithmetic without float conversions.
+
+```text
+Surfpool Mainnet Fork (127.0.0.1:8899)
+        |
+        v
+Kamino Market + Reserves + Obligations
+        |
+        v
+Position Normalization
+        |
+        +----------------------+
+        |                      |
+        v                      v
+Pyth Oracle Provider      Reserve Metadata
+(Persistent Feed PDAs)         |
+        |                      |
+        +----------+-----------+
+                   |
+                   v
+          Position Validation
+                   |
+                   v
+             Risk Engine
+                   |
+                   v
+       Recovery Feasibility Check
+                   |
+          +--------+--------+
+          |                 |
+          v                 v
+    Supported Shape    Unsupported Shape (Multi-Asset)
+          |                 |
+          v                 v
+   Candidate Generation   Explicit 422 Error
+          |
+          v
+   Jupiter Quote Provider (V2 /order, no taker)
+          |
+          v
+   Candidate Cost & Slippage Enrichment
+          |
+          v
+   Least-Cost Ranking
+          |
+          v
+   Advisory Recovery Response (Non-Custodial)
+```
+
+### 9.2 Account-Model & Provenance Separation
+- **Persistent Price Feed Accounts**: Derived via PDA `[shard_id (u16 LE), feed_id]` under program `pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT` and owned by receiver `rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ`. Continuously sponsored on-chain.
+- **Price Update Accounts**: Ephemeral accounts created on-demand when posting Hermes updates.
+- **Provenance Labels**: `SurfpoolSimulated`, `MainnetObserved`, and `SyntheticFixture` are explicitly preserved across observations and API responses.
+
+### 9.3 Environment Separation
+- `SOLANA_RPC_URL`: Local Surfpool RPC endpoint (`http://127.0.0.1:8899`).
+- `SOLANA_MAINNET_RPC_URL`: Upstream Mainnet RPC used solely by Surfpool as its data source.
+- `SURFPOOL_RPC_URL`: Optional explicit local endpoint.
+- `KAMINO_MARKET_ADDRESS`: Mainnet market configuration (`7u3HeHxYDLhnCoErrtycNokbQYbWGzLs6JSDqGAv5PfF`).
+- `KAMINO_SMOKE_WALLET`: Public wallet address for obligation smoke testing.
+- `JUPITER_API_KEY`: Redacted API key for Jupiter endpoints.
+- `PYTH_API_KEY`: Redacted API key for authenticated Hermes endpoints.

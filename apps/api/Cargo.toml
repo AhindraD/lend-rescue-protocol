@@ -26,6 +26,10 @@ tracing-subscriber = { workspace = true, features = ["env-filter", "fmt"] }
 utoipa = { workspace = true, features = ["axum_extras", "uuid", "chrono"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
 chrono = { workspace = true, features = ["serde"] }
+base64 = "0.22"
+hex = "0.4"
+borsh = { version = "1.8", features = ["derive"] }
+reqwest = { workspace = true }
 
 [dev-dependencies]
 tower = { workspace = true, features = ["util"] }

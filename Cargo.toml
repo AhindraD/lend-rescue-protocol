@@ -35,6 +35,7 @@ tracing-subscriber = { version = "=0.3.23", default-features = false }
 utoipa = "=6.0.0"
 uuid = { version = "=1.29.1", default-features = false }
 chrono = { version = "=0.4.45", default-features = false }
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
 
 [profile.release]
 overflow-checks = true
