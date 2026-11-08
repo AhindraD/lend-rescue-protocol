@@ -6,6 +6,30 @@ LendRescue monitors DeFi lending positions on Solana, evaluates liquidation risk
 
 ---
 
+## 📺 Product Demo & Walkthrough
+
+- 🎥 **Watch Demo Video / Playlist:** [Solana Hackathon Presentation & Walkthrough](https://www.youtube.com/playlist?list=PLIrrZta8cz3E)
+- 📼 **Local High-Definition Recording:** [`artifacts/demo/lendrescue-demo.mp4`](artifacts/demo/lendrescue-demo.mp4) (50s H.264 / 1600x900)
+
+<p align="center">
+  <video src="artifacts/demo/lendrescue-demo.mp4" controls="controls" width="100%" poster="artifacts/demo/screenshot-dashboard.png">
+    Your browser does not support the video tag. View the local recording at <a href="artifacts/demo/lendrescue-demo.mp4">artifacts/demo/lendrescue-demo.mp4</a> or watch on <a href="https://www.youtube.com/playlist?list=PLIrrZta8cz3E">YouTube</a>.
+  </video>
+</p>
+
+### 📸 Application Previews
+
+| **Cinematic Landing & 3D Rescue Core** | **Console Dashboard & Position Feed** |
+|:---:|:---:|
+| ![Landing Page](artifacts/demo/screenshot-hero.png) | ![Dashboard Console](artifacts/demo/screenshot-dashboard.png) |
+
+<p align="center">
+  <b>Recovery Strategy Lab & Candidate Optimizer</b><br/>
+  <img src="artifacts/demo/screenshot-recovery-lab.png" alt="Recovery Strategy Lab" width="95%" />
+</p>
+
+---
+
 ## Key Features
 
 - **Execution-Aware Recovery**: Compares debt repayment, collateral addition, and swap-and-repay options, factoring in fees, slippage, and oracle confidence intervals.
