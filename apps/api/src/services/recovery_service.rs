@@ -1,23 +1,27 @@
 use std::sync::Arc;
 
 use chrono::Utc;
-use domain_types::{HealthFactor, RecoveryAction, RecoveryPolicy, ALL_ACTIONS_MASK};
+use domain_types::{
+    HealthFactor, ProtocolSource, RecoveryAction, RecoveryPolicy, ALL_ACTIONS_MASK,
+};
 use recovery_engine::{generate_recovery_candidates, SwapPoolParams};
 use risk_engine::compute_health_factor;
 use uuid::Uuid;
 
 use crate::dto::{
     RecoveryOptimizeRequest, RecoveryPlanDto, RecoveryQuoteRequest, RecoveryRecommendationResponse,
+    ScoreBreakdownDto, SwapQuoteDto, TokenAmountDto,
 };
 use crate::error::ApiError;
 use crate::persistence::RecommendationRepository;
-use crate::providers::OracleProvider;
+use crate::providers::{OracleProvider, SwapQuoteProvider};
 use crate::services::PositionService;
 
 #[derive(Clone)]
 pub struct RecoveryService {
     position_service: PositionService,
     oracle_provider: Arc<dyn OracleProvider>,
+    swap_quote_provider: Arc<dyn SwapQuoteProvider>,
     swap_pool: SwapPoolParams,
     repository: RecommendationRepository,
 }
@@ -26,23 +30,105 @@ impl RecoveryService {
     pub fn new(
         position_service: PositionService,
         oracle_provider: Arc<dyn OracleProvider>,
+        swap_quote_provider: Arc<dyn SwapQuoteProvider>,
         swap_pool: SwapPoolParams,
         repository: RecommendationRepository,
     ) -> Self {
         Self {
             position_service,
             oracle_provider,
+            swap_quote_provider,
             swap_pool,
             repository,
         }
     }
 
-    /// Quotes a single requested recovery action for a position.
+    /// Quotes a single requested recovery action or indicative swap quote.
     pub async fn quote_recovery(
         &self,
         req: RecoveryQuoteRequest,
     ) -> Result<RecoveryPlanDto, ApiError> {
-        let position = self.position_service.get_position(&req.position_id).await?;
+        let max_slip = req.max_slippage_bps.unwrap_or(100);
+        let refresh = req.refresh.unwrap_or(false);
+
+        // Standalone swap quote branch (e.g. Jupiter explicit mint pair query)
+        if let (Some(input_mint), Some(output_mint), Some(amount_str)) =
+            (&req.input_mint, &req.output_mint, &req.amount)
+        {
+            let amount_raw = amount_str
+                .parse::<u64>()
+                .map_err(|e| ApiError::BadRequest(format!("Invalid amount string: {}", e)))?;
+
+            let quote = self
+                .swap_quote_provider
+                .get_swap_quote(input_mint, output_mint, amount_raw, max_slip, refresh)
+                .await?;
+
+            let swap_dto = SwapQuoteDto::from_domain(&quote);
+            let fee_raw = (quote.expected_out_amount.raw as u128)
+                .checked_mul(quote.fee_bps as u128)
+                .unwrap_or(0)
+                / 10_000;
+            let fee_u64 = fee_raw as u64;
+
+            return Ok(RecoveryPlanDto {
+                action: "SwapQuote".to_string(),
+                action_label: "Indicative Swap Quote".to_string(),
+                input_amount: TokenAmountDto::from_domain(&quote.in_amount),
+                expected_output_amount: Some(TokenAmountDto::from_domain(
+                    &quote.expected_out_amount,
+                )),
+                min_output_amount: Some(TokenAmountDto::from_domain(
+                    &quote.planning_min_out_amount,
+                )),
+                debt_repaid: TokenAmountDto::from_domain(&quote.expected_out_amount),
+                collateral_spent: TokenAmountDto::from_domain(&quote.in_amount),
+                collateral_added: TokenAmountDto::zero(quote.in_amount.decimals),
+                expected_fee_formatted: format!(
+                    "{}.{:06}",
+                    fee_u64 / 1_000_000,
+                    fee_u64 % 1_000_000
+                ),
+                expected_fee_raw: fee_u64.to_string(),
+                estimated_slippage_bps: max_slip,
+                post_health_factor: "1.0000".to_string(),
+                post_health_factor_scaled: 10000,
+                safety_buffer_bps: 0,
+                is_feasible: true,
+                rejection_reason: None,
+                total_cost_formatted: format!("{}.{:06}", fee_u64 / 1_000_000, fee_u64 % 1_000_000),
+                total_cost_raw: fee_u64.to_string(),
+                score: 100,
+                score_breakdown: ScoreBreakdownDto {
+                    capital_efficiency: 100,
+                    safety_buffer: 0,
+                    fee_penalty: 0,
+                    slippage_penalty: 0,
+                    total_score: 100,
+                },
+                swap_quote: Some(swap_dto),
+            });
+        }
+
+        let pos_id = req.position_id.as_deref().ok_or_else(|| {
+            ApiError::BadRequest(
+                "Either positionId or (inputMint, outputMint, amount) must be provided".to_string(),
+            )
+        })?;
+
+        let position = self.position_service.get_position(pos_id).await?;
+
+        // Multi-asset Kamino safety guard:
+        // Do not calculate synthetic quotes for KaminoMainnet or multi-asset obligations
+        if position.protocol_source == ProtocolSource::KaminoMainnet
+            || position.collateral_positions.len() > 1
+            || position.debt_positions.len() > 1
+        {
+            return Err(ApiError::UnprocessableEntity(
+                "Recovery quote is unsupported for multi-asset Kamino positions until multi-leg recovery math is implemented"
+                    .to_string(),
+            ));
+        }
 
         let col_price = self
             .oracle_provider
@@ -69,7 +155,8 @@ impl RecoveryService {
         let target_hf = parse_health_factor(req.target_health_factor.as_deref(), 12_500)?;
         let now = Utc::now().timestamp();
 
-        let action = parse_recovery_action(&req.action)?;
+        let action_str = req.action.as_deref().unwrap_or("RepayDebt");
+        let action = parse_recovery_action(action_str)?;
 
         // Build policy constraining execution
         let max_debt = req
@@ -91,8 +178,6 @@ impl RecoveryService {
             })
             .transpose()?
             .unwrap_or(u64::MAX);
-
-        let max_slip = req.max_slippage_bps.unwrap_or(100);
 
         let policy = RecoveryPolicy {
             position: position.id.clone(),
@@ -126,11 +211,41 @@ impl RecoveryService {
             .ok_or_else(|| {
                 ApiError::UnprocessableEntity(format!(
                     "Unable to generate viable quote for action '{}'",
-                    req.action
+                    action_str
                 ))
             })?;
 
-        Ok(RecoveryPlanDto::from_proposal(&plan))
+        let mut plan_dto = RecoveryPlanDto::from_proposal(&plan);
+
+        // Enrich with swap quote if action is SwapCollateralAndRepay
+        if plan.action == RecoveryAction::SwapCollateralAndRepay && plan.collateral_spent.raw > 0 {
+            let col_mint = position
+                .collateral_positions
+                .first()
+                .map(|p| p.mint_address.as_str())
+                .unwrap_or("So11111111111111111111111111111111111111112");
+            let debt_mint = position
+                .debt_positions
+                .first()
+                .map(|p| p.mint_address.as_str())
+                .unwrap_or("EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v");
+
+            if let Ok(quote) = self
+                .swap_quote_provider
+                .get_swap_quote(
+                    col_mint,
+                    debt_mint,
+                    plan.collateral_spent.raw,
+                    max_slip,
+                    refresh,
+                )
+                .await
+            {
+                plan_dto.swap_quote = Some(SwapQuoteDto::from_domain(&quote));
+            }
+        }
+
+        Ok(plan_dto)
     }
 
     /// Evaluates and deterministically ranks all recovery options for a position.
@@ -139,6 +254,18 @@ impl RecoveryService {
         req: RecoveryOptimizeRequest,
     ) -> Result<RecoveryRecommendationResponse, ApiError> {
         let position = self.position_service.get_position(&req.position_id).await?;
+
+        // Multi-asset Kamino safety guard:
+        // Reject full recovery plan calculation for KaminoMainnet or multi-asset positions
+        if position.protocol_source == ProtocolSource::KaminoMainnet
+            || position.collateral_positions.len() > 1
+            || position.debt_positions.len() > 1
+        {
+            return Err(ApiError::UnprocessableEntity(
+                "Recovery optimization is unsupported for multi-asset Kamino positions until multi-leg recovery math is implemented"
+                    .to_string(),
+            ));
+        }
 
         let col_price = self
             .oracle_provider

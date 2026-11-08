@@ -29,6 +29,14 @@ pub struct AppConfig {
     pub kamino_market_address: String,
     pub kamino_request_timeout_ms: u64,
     pub position_source: String,
+
+    // Jupiter Swap Adapter Configuration (Phase 5C)
+    pub jupiter_api_url: String,
+    pub jupiter_api_key: Option<String>,
+    pub jupiter_request_timeout_ms: u64,
+    pub jupiter_max_retries: usize,
+    pub jupiter_quote_ttl_secs: i64,
+    pub swap_quote_source: String,
 }
 
 impl fmt::Debug for AppConfig {
@@ -56,6 +64,22 @@ impl fmt::Debug for AppConfig {
             )
             .field("hermes_url", &self.hermes_url)
             .field("oracle_source", &self.oracle_source)
+            .field("kamino_adapter_url", &self.kamino_adapter_url)
+            .field("kamino_market_address", &self.kamino_market_address)
+            .field("kamino_request_timeout_ms", &self.kamino_request_timeout_ms)
+            .field("position_source", &self.position_source)
+            .field("jupiter_api_url", &self.jupiter_api_url)
+            .field(
+                "jupiter_api_key",
+                &self.jupiter_api_key.as_ref().map(|_| "[REDACTED]"),
+            )
+            .field(
+                "jupiter_request_timeout_ms",
+                &self.jupiter_request_timeout_ms,
+            )
+            .field("jupiter_max_retries", &self.jupiter_max_retries)
+            .field("jupiter_quote_ttl_secs", &self.jupiter_quote_ttl_secs)
+            .field("swap_quote_source", &self.swap_quote_source)
             .finish()
     }
 }
@@ -142,6 +166,31 @@ impl AppConfig {
 
         let position_source = env::var("POSITION_SOURCE").unwrap_or_else(|_| "demo".to_string());
 
+        let jupiter_api_url = env::var("JUPITER_API_URL")
+            .unwrap_or_else(|_| "https://api.jup.ag/swap/v2".to_string());
+
+        let jupiter_api_key = env::var("JUPITER_API_KEY")
+            .ok()
+            .filter(|s| !s.trim().is_empty());
+
+        let jupiter_request_timeout_ms: u64 = env::var("JUPITER_REQUEST_TIMEOUT_MS")
+            .unwrap_or_else(|_| "5000".to_string())
+            .parse()
+            .map_err(|e| format!("Invalid JUPITER_REQUEST_TIMEOUT_MS: {}", e))?;
+
+        let jupiter_max_retries: usize = env::var("JUPITER_MAX_RETRIES")
+            .unwrap_or_else(|_| "2".to_string())
+            .parse()
+            .map_err(|e| format!("Invalid JUPITER_MAX_RETRIES: {}", e))?;
+
+        let jupiter_quote_ttl_secs: i64 = env::var("JUPITER_QUOTE_TTL_SECS")
+            .unwrap_or_else(|_| "15".to_string())
+            .parse()
+            .map_err(|e| format!("Invalid JUPITER_QUOTE_TTL_SECS: {}", e))?;
+
+        let swap_quote_source =
+            env::var("SWAP_QUOTE_SOURCE").unwrap_or_else(|_| "demo".to_string());
+
         Ok(Self {
             bind_host,
             bind_port,
@@ -163,6 +212,12 @@ impl AppConfig {
             kamino_market_address,
             kamino_request_timeout_ms,
             position_source,
+            jupiter_api_url,
+            jupiter_api_key,
+            jupiter_request_timeout_ms,
+            jupiter_max_retries,
+            jupiter_quote_ttl_secs,
+            swap_quote_source,
         })
     }
 
@@ -189,6 +244,12 @@ impl AppConfig {
             kamino_market_address: "7u3HeHxatcAACvdFtHGryaZWwZxKhqWisdHJaJBYbugj".to_string(),
             kamino_request_timeout_ms: 10000,
             position_source: "demo".to_string(),
+            jupiter_api_url: "https://api.jup.ag/swap/v2".to_string(),
+            jupiter_api_key: None,
+            jupiter_request_timeout_ms: 5000,
+            jupiter_max_retries: 2,
+            jupiter_quote_ttl_secs: 15,
+            swap_quote_source: "demo".to_string(),
         }
     }
 }

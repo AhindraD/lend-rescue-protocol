@@ -58,6 +58,10 @@ impl TokenAmountDto {
             formatted: amt.to_decimal_string(),
         }
     }
+
+    pub fn zero(decimals: u8) -> Self {
+        Self::from_domain(&domain_types::TokenAmount::zero(decimals))
+    }
 }
 
 /// Price representation DTO preserving integer precision without floating-point primitives.

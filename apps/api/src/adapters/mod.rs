@@ -1,7 +1,13 @@
+pub mod jupiter;
 pub mod kamino;
 pub mod mock_oracle;
 pub mod pyth;
 
+pub use jupiter::{
+    resolve_mint_asset, JupiterConfig, JupiterError, JupiterHttpTransport,
+    JupiterOrderResponseJson, JupiterSwapQuoteProvider, JupiterTransport, MockJupiterTransport,
+    RecordedJupiterRequest,
+};
 pub use kamino::{
     KaminoAdapterConfig, KaminoBorrowEntryJson, KaminoDepositEntryJson, KaminoHttpTransport,
     KaminoMarketResponseJson, KaminoObligationResponseJson, KaminoObligationsListResponseJson,

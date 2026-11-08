@@ -234,3 +234,42 @@ This document records the architectural and design decisions made for LendRescue
   - *Positive*: High-fidelity multi-asset position monitoring reflecting authentic on-chain Kamino state.
   - *Positive*: Full deterministic testability offline via in-memory mock transports and unit test fixtures.
 
+---
+
+### ADR-014: Jupiter Swap API V2 Quote-Only Integration, Slippage Planning Semantics, and Multi-Asset Optimizer Safety Guard
+
+- **Status**: Accepted
+- **Context**:
+  1. LendRescue evaluates recovery options including collateral swap and repayment (`SwapCollateralAndRepay`). Evaluating viable swap routes requires accurate liquidity, routing, and price impact data from Solana's primary liquidity aggregator (Jupiter).
+  2. LendRescue is strictly advisory and non-custodial: the backend API must never hold private keys, never build unsigned transaction payloads, never sign or submit swap transactions, and never report indicative quotes as executed swaps.
+  3. Jupiter Swap API V2 provides `GET /swap/v2/order`. When the `taker` query parameter is omitted, Jupiter returns routing and quote metadata with `transaction: null`, exactly satisfying LendRescue's quote-only requirements. Calling `/build` or `/execute` is prohibited.
+  4. Fee semantics in Jupiter V2 differ from V1: returned `outAmount` already deducts platform fees. Subtracting fees again would cause double-deduction.
+  5. Slippage evaluation requires a conservative planning floor calculated with checked integer arithmetic to evaluate whether a swap will satisfy policy minimums.
+  6. Multi-Asset Kamino Safety Guard: Phase 5B preserves all Kamino deposit and borrow legs. However, the current recovery optimizer is designed for single collateral/debt pairs. Running single-pair optimization against a multi-asset position would silently drop non-dominant legs and calculate misleading health factors.
+- **Decision**:
+  1. **Strictly Quote-Only Jupiter V2 Architecture**: Integrate Jupiter Swap API V2 `GET /swap/v2/order` passing `inputMint`, `outputMint`, and raw `amount` as base-unit decimal strings without passing `taker`, `payer`, or wallet signers.
+  2. **Quote-Only Security Assertion**: The transport strictly asserts `transaction: null`. If an unexpected transaction payload is returned, it is rejected with `JupiterError::UnexpectedTransactionPayload` (500 Internal Server Error) and never persisted or returned to clients.
+  3. **Numerical Precision & Fee Accounting**:
+     - Raw amounts are parsed into checked integers (`u64`) and serialized as JSON decimal strings. Floating-point types (`f32`/`f64`) are prohibited in domain representations.
+     - `expected_out_amount` is preserved as `outAmount` without double fee deduction.
+     - Conservative local planning minimum output is computed with checked 128-bit integer floor division:
+       $$\text{planning\_min\_output} = \frac{\text{outAmount} \times (10{,}000 - \text{max\_slippage\_bps})}{10{,}000}$$
+       Rejecting $\text{max\_slippage\_bps} > 10{,}000$ with HTTP 400 Bad Request.
+  4. **Multi-Asset Kamino Safety Guard**:
+     - `optimize_recovery` and `quote_recovery` evaluate position provenance and asset legs.
+     - If `protocol_source == KaminoMainnet` or if `collateral_positions.len() > 1 || debt_positions.len() > 1`, the endpoint returns HTTP 422 Unprocessable Entity (`"Recovery optimization is unsupported for multi-asset Kamino positions until multi-leg recovery math is implemented"`).
+     - Standalone swap quotes for explicit mint pairs (`POST /api/v1/recovery/quote` with `inputMint`, `outputMint`, `amount`) remain fully operational.
+  5. **Resilience & Key Redaction**:
+     - Optional `JUPITER_API_KEY` passed via `x-api-key` header and strictly redacted (`"[REDACTED]"`) in `Debug` implementations, logs, and DTOs. Keyless access supported within rate limits.
+     - HTTP 429 rate limit handling parsing `Retry-After` header.
+     - In-memory short-lived caching with TTL to protect rate limits while preventing stale quotes.
+     - Zero silent fallback: if Jupiter fails, return typed errors (`TooManyRequests`, `Unauthorized`, `BadGateway`, etc.); never silently substitute mock quotes.
+  6. **Deterministic Offline Testing**:
+     - Implemented `MockJupiterTransport` supporting 18 unit/integration tests covering golden scenarios (SOL $\to$ USDC, bSOL $\to$ USDC), large integer precision ($> 2^{53}$), rate limits, authentication failures, unexpected transaction rejection, and recovery service integration without external network access.
+     - Optional live smoke test enabled via `JUPITER_LIVE_TEST=1`.
+- **Consequences**:
+  - *Positive*: Real-time Solana swap routing and pricing data available to recovery optimizer and frontend.
+  - *Positive*: Complete non-custodial guarantee with zero transaction construction, signing, or broadcast.
+  - *Positive*: Conservative financial calculations with zero floating-point imprecision.
+  - *Positive*: Fail-closed protection against misleading recommendations on complex multi-asset Kamino obligations.
+

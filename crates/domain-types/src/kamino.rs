@@ -86,4 +86,3 @@ pub struct KaminoObligationSnapshot {
     pub borrows: Vec<KaminoBorrowSnapshot>,
     pub protocol_metrics: KaminoProtocolMetrics,
 }
-

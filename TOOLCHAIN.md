@@ -98,6 +98,14 @@ To consume Kamino Lending's official TypeScript SDK without corrupting root Anch
 - **TypeScript**: `5.7.3` in adapter, compatible with root `5.9.3`.
 - **Isolation Guarantee**: The Kamino adapter runs as an independent daemon bound strictly to `127.0.0.1:3002`. Neither `@solana/kit` nor `@coral-xyz/anchor@0.28.0` are ever loaded into the root Anchor program build or the integration test suite. Root tests continue executing against `@anchor-lang/core@1.2.2` and `@solana/web3.js@1.99.0`.
 
+### 3.4 Jupiter Swap API V2 Quote-Only Specification
+- **API Version**: Jupiter Swap API V2
+- **Base URL**: `https://api.jup.ag/swap/v2`
+- **Primary Endpoint**: `GET /order?inputMint=<INPUT_MINT>&outputMint=<OUTPUT_MINT>&amount=<RAW_AMOUNT>`
+- **Quote-Only Invariant**: The `taker` parameter is strictly omitted, guaranteeing `transaction: null`. Endpoints that construct instructions (`/build`) or submit transactions (`/execute`, `/submit`) are strictly prohibited.
+- **Header Authentication**: Optional `x-api-key: <KEY>`. Keyless queries supported within standard public rate limits (~0.5 rps).
+- **Documentation Reference**: <https://developers.jup.ag/docs/swap/index.md>
+
 ---
 
 ## 4. Surfpool Configuration

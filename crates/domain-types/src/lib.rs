@@ -8,6 +8,7 @@ pub mod position;
 pub mod price;
 pub mod recovery;
 pub mod risk;
+pub mod swap;
 
 pub use amount::TokenAmount;
 pub use asset::{Asset, AssetId};
@@ -27,6 +28,7 @@ pub use position::{
 pub use price::Price;
 pub use recovery::{RecoveryAction, RecoveryCandidate, ScoreBreakdown};
 pub use risk::{HealthFactor, RiskBand, RiskProfile, RiskThresholds};
+pub use swap::{SwapQuote, SwapRouteStep};
 
 #[cfg(test)]
 mod tests {

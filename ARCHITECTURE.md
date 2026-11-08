@@ -230,3 +230,35 @@ Order of evaluation in `execute_recovery`:
 14. Enforce `post_hf >= policy.min_resulting_hf`.
 15. Increment `policy.execution_nonce` and write `RecoveryReceipt` (seeds `[b"receipt", position, nonce]`).
 16. Emit `RecoveryExecutedEvent`.
+
+---
+
+## 8. Jupiter Swap API V2 Integration & Trust Boundary
+
+### 8.1 Strictly Quote-Only Architecture
+LendRescue integrates Jupiter Swap API V2 to obtain real-world indicative swap quotes for recovery planning:
+- **Base URL**: `https://api.jup.ag/swap/v2`
+- **Endpoint**: `GET /order?inputMint=<MINT>&outputMint=<MINT>&amount=<RAW_AMOUNT>`
+- **Quote-Only Mode**: The `taker` query parameter is strictly omitted. In Jupiter V2, omitting `taker` guarantees that Jupiter returns quote and routing metadata with `transaction: null`.
+- **Security Invariant**: LendRescue never builds, signs, or executes swap transactions:
+  - `/build` is excluded (no raw instruction assembly).
+  - `/execute` and `/submit` are excluded.
+  - If an unexpected non-null `transaction` payload appears in the response, it is rejected with `JupiterError::UnexpectedTransactionPayload` and never exposed or persisted.
+
+### 8.2 Fee Normalization & Accounting
+In Jupiter Swap API V2:
+- `outAmount`: Expected output token amount before slippage, already net of platform fees.
+- `feeBps`: Router/liquidity provider fee in basis points.
+- `platformFee`: Integrator fee metadata (`feeBps` and `amount`).
+- **Accounting Invariant**: Because `outAmount` already deducts platform fees, LendRescue does not subtract fees a second time. Fee metadata is tracked exclusively for reporting, transparency, and candidate scoring.
+
+### 8.3 Conservative Slippage Planning Floor
+During recovery planning, LendRescue computes a conservative local minimum output threshold:
+$$\text{planning\_min\_output} = \frac{\text{outAmount} \times (10{,}000 - \text{max\_slippage\_bps})}{10{,}000}$$
+- Computed using pure checked 128-bit integer floor arithmetic without floating-point primitives.
+- Distinguishes between LendRescue's local planning floor and Jupiter's indicative quote.
+
+### 8.4 Multi-Asset Kamino Safety Guard
+Phase 5B normalizes and preserves every deposit and debt leg of Kamino obligations. The current recovery optimizer evaluates single-asset pairs (dominant collateral / debt). To prevent misleading recovery recommendations:
+- Full recovery optimization requests on positions where `protocol_source == KaminoMainnet` or multi-asset positions (`collateral_positions.len() > 1 || debt_positions.len() > 1`) are rejected with HTTP 422 Unprocessable Entity.
+- Standalone swap quotes for explicit mint pairs (`POST /api/v1/recovery/quote`) remain fully available.

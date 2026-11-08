@@ -4,7 +4,7 @@ use crate::config::AppConfig;
 use crate::persistence::{
     DatabasePool, ObservationRepository, RecommendationRepository, SnapshotRepository,
 };
-use crate::providers::{DemoProvider, OracleProvider};
+use crate::providers::{DemoProvider, OracleProvider, SwapQuoteProvider};
 use crate::services::{MarketService, PositionService, RecoveryService, RiskService};
 
 /// Global application shared state.
@@ -16,6 +16,7 @@ pub struct AppState {
     pub risk_service: RiskService,
     pub recovery_service: RecoveryService,
     pub oracle_provider: Arc<dyn OracleProvider>,
+    pub swap_quote_provider: Arc<dyn SwapQuoteProvider>,
     pub db_pool: DatabasePool,
 }
 
@@ -64,6 +65,33 @@ impl AppState {
                         transport,
                     ))
                 }
+                "mock" | "kamino_mock" => {
+                    let kamino_config = crate::adapters::KaminoAdapterConfig::default();
+                    let transport = Arc::new(crate::adapters::MockKaminoTransport::new());
+                    Arc::new(crate::adapters::KaminoPositionProvider::new(
+                        kamino_config,
+                        transport,
+                    ))
+                }
+                _ => demo_provider.clone(),
+            };
+
+        let swap_quote_provider: Arc<dyn SwapQuoteProvider> =
+            match config.swap_quote_source.to_ascii_lowercase().as_str() {
+                "jupiter" => {
+                    let jup_config = crate::adapters::JupiterConfig::new(&config.jupiter_api_url)
+                        .with_api_key(config.jupiter_api_key.clone())
+                        .with_request_timeout_ms(config.jupiter_request_timeout_ms)
+                        .with_max_retries(config.jupiter_max_retries)
+                        .with_quote_ttl_secs(config.jupiter_quote_ttl_secs);
+
+                    let transport = Arc::new(crate::adapters::JupiterHttpTransport::new(
+                        jup_config.clone(),
+                    ));
+                    Arc::new(crate::adapters::JupiterSwapQuoteProvider::new(
+                        jup_config, transport,
+                    ))
+                }
                 _ => demo_provider.clone(),
             };
 
@@ -77,6 +105,7 @@ impl AppState {
         let recovery_service = RecoveryService::new(
             position_service.clone(),
             oracle_provider.clone(),
+            swap_quote_provider.clone(),
             demo_provider.swap_pool_params(),
             recommendation_repo,
         );
@@ -88,6 +117,7 @@ impl AppState {
             risk_service,
             recovery_service,
             oracle_provider,
+            swap_quote_provider,
             db_pool,
         })
     }

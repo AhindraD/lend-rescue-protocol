@@ -34,6 +34,8 @@ use crate::handlers::{health, markets, oracles, positions, recovery};
             RecoveryPlanDto,
             RecoveryRecommendationResponse,
             ScoreBreakdownDto,
+            SwapQuoteDto,
+            SwapRouteStepDto,
             ErrorResponse,
             ErrorPayload,
         )

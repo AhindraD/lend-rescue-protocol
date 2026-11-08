@@ -75,6 +75,27 @@ fn test_api_error_status_mapping() {
         axum::http::StatusCode::INTERNAL_SERVER_ERROR
     );
     assert_eq!(err_domain.error_code(), "MATH_OVERFLOW");
+
+    let err_rate_limit = ApiError::TooManyRequests("Rate limited".to_string());
+    assert_eq!(
+        err_rate_limit.status_code(),
+        axum::http::StatusCode::TOO_MANY_REQUESTS
+    );
+    assert_eq!(err_rate_limit.error_code(), "RATE_LIMITED");
+
+    let err_unauth = ApiError::Unauthorized("Invalid API key".to_string());
+    assert_eq!(
+        err_unauth.status_code(),
+        axum::http::StatusCode::UNAUTHORIZED
+    );
+    assert_eq!(err_unauth.error_code(), "UNAUTHORIZED");
+
+    let err_bad_gw = ApiError::BadGateway("Gateway error".to_string());
+    assert_eq!(
+        err_bad_gw.status_code(),
+        axum::http::StatusCode::BAD_GATEWAY
+    );
+    assert_eq!(err_bad_gw.error_code(), "BAD_GATEWAY");
 }
 
 #[tokio::test]

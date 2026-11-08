@@ -13,6 +13,6 @@ pub use oracle::OraclePriceResponse;
 pub use position::{PositionFilterQuery, PositionResponse};
 pub use recovery::{
     RecoveryOptimizeRequest, RecoveryPlanDto, RecoveryQuoteRequest, RecoveryRecommendationResponse,
-    ScoreBreakdownDto,
+    ScoreBreakdownDto, SwapQuoteDto, SwapRouteStepDto,
 };
 pub use risk::RiskAssessmentResponse;
