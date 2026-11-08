@@ -1,0 +1,21 @@
+[package]
+name = "risk-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+authors.workspace = true
+repository.workspace = true
+readme = "README.md"
+description = "Pure Rust financial risk engine and fixed-point math for LendRescue"
+
+[dependencies]
+domain-types = { workspace = true }
+serde = { workspace = true, features = ["derive", "alloc"] }
+thiserror = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }
+
+[features]
+default = ["std"]
+std = ["domain-types/std", "serde/std"]

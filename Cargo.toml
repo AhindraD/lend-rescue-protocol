@@ -1,7 +1,10 @@
 [workspace]
 resolver = "2"
 members = [
-    "programs/lend_rescue"
+    "programs/lend_rescue",
+    "crates/domain-types",
+    "crates/risk-engine",
+    "crates/recovery-engine",
 ]
 
 [workspace.package]
@@ -12,6 +15,14 @@ authors = ["LendRescue Contributors"]
 repository = "https://github.com/AhindraD/lend-rescue-protocol"
 homepage = "https://github.com/AhindraD/lend-rescue-protocol"
 readme = "README.md"
+
+[workspace.dependencies]
+serde = { version = "1.0", default-features = false, features = ["derive", "alloc"] }
+serde_json = { version = "1.0", default-features = false, features = ["alloc"] }
+thiserror = "2.0"
+domain-types = { path = "crates/domain-types" }
+risk-engine = { path = "crates/risk-engine" }
+recovery-engine = { path = "crates/recovery-engine" }
 
 [profile.release]
 overflow-checks = true

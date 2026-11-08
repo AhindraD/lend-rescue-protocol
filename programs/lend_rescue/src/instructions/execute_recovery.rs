@@ -1,10 +1,7 @@
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Burn, Mint, Token, TokenAccount, Transfer};
 
-use crate::constants::{
-    COLLATERAL_VAULT_SEED, DEMO_POOL_SEED, MARKET_SEED, MAX_ORACLE_AGE_SECS, POOL_VAULT_SEED,
-    RECEIPT_SEED,
-};
+use crate::constants::{DEMO_POOL_SEED, MARKET_SEED, MAX_ORACLE_AGE_SECS, RECEIPT_SEED};
 use crate::error::LendRescueError;
 use crate::events::RecoveryExecutedEvent;
 use crate::state::{

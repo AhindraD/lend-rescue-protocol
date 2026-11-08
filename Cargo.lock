@@ -604,6 +604,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "domain-types"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "either"
 version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1054,6 +1062,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "recovery-engine"
+version = "0.1.0"
+dependencies = [
+ "domain-types",
+ "risk-engine",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
+
+[[package]]
 name = "redox_syscall"
 version = "0.5.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1090,6 +1109,16 @@ name = "regex-syntax"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d6f6ff9a378485b298a5286656da665ba74413d36db0979633275d2e708145d4"
+
+[[package]]
+name = "risk-engine"
+version = "0.1.0"
+dependencies = [
+ "domain-types",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.21",
+]
 
 [[package]]
 name = "rustc_version"
