@@ -60,4 +60,3 @@ impl From<JupiterError> for ApiError {
         }
     }
 }
-

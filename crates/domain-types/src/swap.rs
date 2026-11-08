@@ -143,4 +143,3 @@ mod tests {
         assert!(quote.is_stale(1031));
     }
 }
-

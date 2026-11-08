@@ -69,13 +69,6 @@ impl RecoveryPlanDto {
     }
 
     pub fn from_proposal_with_swap(p: &RecoveryProposal, swap_quote: Option<SwapQuoteDto>) -> Self {
-        Self::from_proposal_with_swap(p, None)
-    }
-
-    pub fn from_proposal_with_swap(
-        p: &RecoveryProposal,
-        swap_quote: Option<SwapQuoteDto>,
-    ) -> Self {
         let format_quote = |raw: u64| -> String {
             let whole = raw / 1_000_000;
             let frac = raw % 1_000_000;
